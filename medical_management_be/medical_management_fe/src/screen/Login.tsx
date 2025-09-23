@@ -3,7 +3,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { SignInData } from "../api/auth/types";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
-import { authApi } from "@/api/auth/auth.api";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -47,52 +46,53 @@ export default function Login() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Mock submit: set tokens and go to dashboard without API call
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) {
-      toast.error("Please fix the errors in the form", {
-        duration: 4000,
-        position: "top-center",
-        style: { background: "#EF4444", color: "#fff" },
-      });
-      return;
-    }
-
-    try {
-      const res = await authApi.signIn(formData);
-      // Persist tokens
-      localStorage.setItem("accessToken", res.accessToken);
-      localStorage.setItem("refreshToken", res.refreshToken);
-      localStorage.setItem("roles", JSON.stringify([res.user.role]));
-
-      // Refresh current user cache
+    if (validateForm()) {
+      const mockAccessToken = "mock-access-token";
+      const mockRefreshToken = "mock-refresh-token";
+      localStorage.setItem("accessToken", mockAccessToken);
+      localStorage.setItem("refreshToken", mockRefreshToken);
+      // optional roles for UI
+      localStorage.setItem("roles", JSON.stringify(["ADMIN"]));
       queryClient.invalidateQueries({ queryKey: ["currentUser"] });
-
       toast.success("Login successful! Redirecting...", {
         duration: 1000,
         position: "top-center",
-        style: { background: "#10B981", color: "#fff" },
+        style: {
+          background: "#10B981",
+          color: "#fff",
+        },
       });
-
-      // Navigate based on role (can be expanded later)
-      const target = "/dashboard";
-      setTimeout(() => navigate(target), 800);
-    } catch (error: unknown) {
-      const message = (error as any)?.response?.data?.message || "Login failed";
-      toast.error(message, {
-        duration: 2500,
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 1000);
+    } else {
+      toast.error("Please fix the errors in the form", {
+        duration: 4000,
         position: "top-center",
-        style: { background: "#EF4444", color: "#fff" },
+        style: {
+          background: "#EF4444",
+          color: "#fff",
+        },
       });
     }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
 
     if (errors[name as keyof typeof errors]) {
-      setErrors((prev) => ({ ...prev, [name]: undefined }));
+      setErrors((prev) => ({
+        ...prev,
+        [name]: undefined,
+      }));
     }
   };
 
