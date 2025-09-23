@@ -1,4 +1,13 @@
-import { Body, Controller, Get, HttpException, HttpStatus, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpException,
+  HttpStatus,
+  Param,
+  Post,
+  Query
+} from '@nestjs/common';
 import { PatientService } from './patient.service';
 import { UserInfo } from '@/common/decorators/users.decorator';
 import { IUserFromToken } from '@/modules/users/types/user.type';
@@ -22,7 +31,10 @@ export class PatientController {
   }
 
   @Get('prescriptions/:id')
-  async prescriptionDetail(@Param('id') id: string, @UserInfo() user: IUserFromToken) {
+  async prescriptionDetail(
+    @Param('id') id: string,
+    @UserInfo() user: IUserFromToken
+  ) {
     this.ensurePatient(user);
     return this.patientService.getPrescriptionDetail(user.id, id);
   }
@@ -86,5 +98,3 @@ export class PatientController {
     return this.patientService.listAlerts(user.id);
   }
 }
-
-

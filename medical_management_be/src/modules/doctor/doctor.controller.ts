@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, HttpException, HttpStatus, Param, Post, Put, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpException,
+  HttpStatus,
+  Param,
+  Post,
+  Put,
+  Query
+} from '@nestjs/common';
 import { DoctorService } from '@/modules/doctor/doctor.service';
 import { UserInfo } from '@/common/decorators/users.decorator';
 import { IUserFromToken } from '@/modules/users/types/user.type';
@@ -6,10 +17,10 @@ import { UserRole } from '@prisma/client';
 
 @Controller('doctor')
 export class DoctorController {
-  constructor(private readonly doctorService: DoctorService) {}
+  constructor(private readonly doctorService: DoctorService) { }
 
   private ensureDoctor(user: IUserFromToken) {
-    if (user.roles !== UserRole.DOCTOR) {
+    if (user.roles !== UserRole.DOCTOR && user.roles !== UserRole.ADMIN) {
       throw new HttpException('Bạn không có quyền', HttpStatus.FORBIDDEN);
     }
   }
@@ -41,7 +52,13 @@ export class DoctorController {
 
   @Post('patients')
   async createPatient(
-    @Body() body: { fullName: string; phoneNumber: string; password: string; profile?: { gender?: string; birthDate?: string; address?: string } },
+    @Body()
+    body: {
+      fullName: string;
+      phoneNumber: string;
+      password: string;
+      profile?: { gender?: string; birthDate?: string; address?: string };
+    },
     @UserInfo() user: IUserFromToken
   ) {
     this.ensureDoctor(user);
@@ -61,7 +78,16 @@ export class DoctorController {
   @Put('patients/:id/history')
   async updateHistory(
     @Param('id') id: string,
-    @Body() body: { conditions?: string[]; allergies?: string[]; surgeries?: string[]; familyHistory?: string; lifestyle?: string; currentMedications?: string[]; notes?: string },
+    @Body()
+    body: {
+      conditions?: string[];
+      allergies?: string[];
+      surgeries?: string[];
+      familyHistory?: string;
+      lifestyle?: string;
+      currentMedications?: string[];
+      notes?: string;
+    },
     @UserInfo() user: IUserFromToken
   ) {
     this.ensureDoctor(user);
@@ -71,9 +97,18 @@ export class DoctorController {
   // Kê đơn thuốc
   @Post('prescriptions')
   async createPrescription(
-    @Body() body: {
+    @Body()
+    body: {
       patientId: string;
-      items: Array<{ medicationId: string; dosage: string; frequencyPerDay: number; timesOfDay: string[]; durationDays: number; route?: string; instructions?: string }>;
+      items: Array<{
+        medicationId: string;
+        dosage: string;
+        frequencyPerDay: number;
+        timesOfDay: string[];
+        durationDays: number;
+        route?: string;
+        instructions?: string;
+      }>;
       notes?: string;
     },
     @UserInfo() user: IUserFromToken
@@ -100,7 +135,10 @@ export class DoctorController {
   }
 
   @Get('prescriptions/:id')
-  async getPrescription(@Param('id') id: string, @UserInfo() user: IUserFromToken) {
+  async getPrescription(
+    @Param('id') id: string,
+    @UserInfo() user: IUserFromToken
+  ) {
     this.ensureDoctor(user);
     return this.doctorService.getPrescription(id);
   }
@@ -108,8 +146,18 @@ export class DoctorController {
   @Put('prescriptions/:id')
   async updatePrescription(
     @Param('id') id: string,
-    @Body() body: {
-      items?: Array<{ id?: string; medicationId: string; dosage: string; frequencyPerDay: number; timesOfDay: string[]; durationDays: number; route?: string; instructions?: string }>;
+    @Body()
+    body: {
+      items?: Array<{
+        id?: string;
+        medicationId: string;
+        dosage: string;
+        frequencyPerDay: number;
+        timesOfDay: string[];
+        durationDays: number;
+        route?: string;
+        instructions?: string;
+      }>;
       notes?: string;
     },
     @UserInfo() user: IUserFromToken
@@ -119,7 +167,10 @@ export class DoctorController {
   }
 
   @Delete('prescriptions/:id')
-  async cancelPrescription(@Param('id') id: string, @UserInfo() user: IUserFromToken) {
+  async cancelPrescription(
+    @Param('id') id: string,
+    @UserInfo() user: IUserFromToken
+  ) {
     this.ensureDoctor(user);
     return this.doctorService.cancelPrescription(id);
   }
@@ -132,7 +183,10 @@ export class DoctorController {
   }
 
   @Get('patients/:id/adherence')
-  async adherence(@Param('id') patientId: string, @UserInfo() user: IUserFromToken) {
+  async adherence(
+    @Param('id') patientId: string,
+    @UserInfo() user: IUserFromToken
+  ) {
     this.ensureDoctor(user);
     return this.doctorService.getAdherenceStats(patientId);
   }
@@ -144,10 +198,11 @@ export class DoctorController {
   }
 
   @Put('alerts/:id/resolve')
-  async resolveAlert(@Param('id') id: string, @UserInfo() user: IUserFromToken) {
+  async resolveAlert(
+    @Param('id') id: string,
+    @UserInfo() user: IUserFromToken
+  ) {
     this.ensureDoctor(user);
     return this.doctorService.resolveAlert(id);
   }
 }
-
-

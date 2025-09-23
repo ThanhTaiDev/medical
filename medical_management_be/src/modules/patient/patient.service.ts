@@ -22,12 +22,25 @@ export class PatientService {
     return p;
   }
 
-  async listHistory(patientId: string, params?: { page?: number; limit?: number; sortBy?: string; sortOrder?: 'asc' | 'desc' }) {
+  async listHistory(
+    patientId: string,
+    params?: {
+      page?: number;
+      limit?: number;
+      sortBy?: string;
+      sortOrder?: 'asc' | 'desc';
+    }
+  ) {
     const page = params?.page && params.page > 0 ? params.page : 1;
     const limit = params?.limit && params.limit > 0 ? params.limit : 20;
     const orderByField = params?.sortBy || 'createdAt';
     const orderDir = params?.sortOrder || 'desc';
-    const where: any = { patientId, status: { in: [PrescriptionStatus.COMPLETED, PrescriptionStatus.CANCELLED] } };
+    const where: any = {
+      patientId,
+      status: {
+        in: [PrescriptionStatus.COMPLETED, PrescriptionStatus.CANCELLED]
+      }
+    };
     const [items, total] = await Promise.all([
       this.databaseService.client.prescription.findMany({
         where,
@@ -46,7 +59,14 @@ export class PatientService {
       include: { prescription: true, medication: true }
     });
     // Expand to schedule entries
-    const reminders: Array<{ date: string; time: string; prescriptionId: string; prescriptionItemId: string; medicationName: string; dosage: string }> = [];
+    const reminders: Array<{
+      date: string;
+      time: string;
+      prescriptionId: string;
+      prescriptionItemId: string;
+      medicationName: string;
+      dosage: string;
+    }> = [];
     const today = new Date();
     for (const item of items) {
       const start = new Date(item.prescription.startDate);
@@ -72,9 +92,16 @@ export class PatientService {
   async confirmIntake(
     patientId: string,
     prescriptionId: string,
-    body: { prescriptionItemId: string; takenAt: string; status: AdherenceStatus; notes?: string }
+    body: {
+      prescriptionItemId: string;
+      takenAt: string;
+      status: AdherenceStatus;
+      notes?: string;
+    }
   ) {
-    const p = await this.databaseService.client.prescription.findFirst({ where: { id: prescriptionId, patientId } });
+    const p = await this.databaseService.client.prescription.findFirst({
+      where: { id: prescriptionId, patientId }
+    });
     if (!p) throw new NotFoundException('Prescription not found');
     return this.databaseService.client.adherenceLog.create({
       data: {
@@ -97,19 +124,29 @@ export class PatientService {
   }
 
   async listAlerts(patientId: string) {
-    return this.databaseService.client.alert.findMany({ where: { patientId }, orderBy: { createdAt: 'desc' } });
+    return this.databaseService.client.alert.findMany({
+      where: { patientId },
+      orderBy: { createdAt: 'desc' }
+    });
   }
 
   async overview(patientId: string) {
-    const [activePrescriptions, takenLogs, totalItems, unresolvedAlerts] = await Promise.all([
-      this.databaseService.client.prescription.count({ where: { patientId, status: 'ACTIVE' } }),
-      this.databaseService.client.adherenceLog.count({ where: { patientId, status: AdherenceStatus.TAKEN } }),
-      this.databaseService.client.prescriptionItem.count({ where: { prescription: { patientId } } }),
-      this.databaseService.client.alert.count({ where: { patientId, resolved: false } })
-    ]);
+    const [activePrescriptions, takenLogs, totalItems, unresolvedAlerts] =
+      await Promise.all([
+        this.databaseService.client.prescription.count({
+          where: { patientId, status: 'ACTIVE' }
+        }),
+        this.databaseService.client.adherenceLog.count({
+          where: { patientId, status: AdherenceStatus.TAKEN }
+        }),
+        this.databaseService.client.prescriptionItem.count({
+          where: { prescription: { patientId } }
+        }),
+        this.databaseService.client.alert.count({
+          where: { patientId, resolved: false }
+        })
+      ]);
     const adherenceRate = totalItems > 0 ? takenLogs / totalItems : 0;
     return { activePrescriptions, adherenceRate, unresolvedAlerts };
   }
 }
-
-
