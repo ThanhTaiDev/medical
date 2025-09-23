@@ -16,7 +16,7 @@ import { Public, SkipPermission } from '@/common/decorators/isPublicRoute';
 
 @Controller('patient')
 export class PatientController {
-  constructor(private readonly patientService: PatientService) {}
+  constructor(private readonly patientService: PatientService) { }
 
   private ensurePatient(user: IUserFromToken) {
     if (user.roles !== UserRole.PATIENT) {
@@ -30,6 +30,22 @@ export class PatientController {
   @SkipPermission()
   async listPatients() {
     return this.patientService.listAllPatients();
+  }
+
+  // Tìm kiếm bệnh nhân theo tên/số điện thoại
+  @Get('search')
+  @Public()
+  @SkipPermission()
+  async search(
+    @Query('q') q?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string
+  ) {
+    return this.patientService.searchPatients({
+      q,
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined
+    });
   }
 
   // Cập nhật thông tin bệnh nhân

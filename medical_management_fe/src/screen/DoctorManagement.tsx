@@ -41,6 +41,11 @@ const toArray = (payload: any): any[] => {
 
 const DoctorManagement: React.FC = () => {
   const queryClient = useQueryClient();
+  const formatDateOnly = (value?: string) => {
+    if (!value) return "-";
+    const s = String(value);
+    return s.length >= 10 ? s.slice(0, 10) : s;
+  };
   const [activeTab, setActiveTab] = useState<
     "patients" | "prescriptions" | "overview" | "alerts"
   >("patients");
@@ -137,10 +142,19 @@ const DoctorManagement: React.FC = () => {
   };
 
   // Queries
-  const patientsQueryKey = useMemo(() => ["patient-get-all"], []);
-  const { data: patientsData, isLoading: loadingPatients } = useQuery({
+  const patientsQueryKey = useMemo(
+    () => [
+      "patient-search",
+      { q: patientSearch, page: patientPage, limit: patientLimit },
+    ],
+    [patientSearch, patientPage, patientLimit]
+  );
+  const { data: patientsData, isLoading: loadingPatients } = useQuery<any>({
     queryKey: patientsQueryKey,
-    queryFn: () => patientApi.getAllPatients(),
+    queryFn: () =>
+      patientSearch?.trim()
+        ? patientApi.searchPatients(patientSearch, patientPage, patientLimit)
+        : patientApi.getAllPatients(),
   });
 
   const { data: overviewData } = useQuery({
@@ -675,7 +689,9 @@ const DoctorManagement: React.FC = () => {
                         </TableCell>
                         <TableCell>{p.phoneNumber}</TableCell>
                         <TableCell>{p.profile?.gender || "-"}</TableCell>
-                        <TableCell>{p.profile?.birthDate || "-"}</TableCell>
+                        <TableCell>
+                          {formatDateOnly(p.profile?.birthDate)}
+                        </TableCell>
                         <TableCell>{p.profile?.address || "-"}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">

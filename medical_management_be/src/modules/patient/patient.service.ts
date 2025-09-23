@@ -4,7 +4,7 @@ import { AdherenceStatus, PrescriptionStatus } from '@prisma/client';
 
 @Injectable()
 export class PatientService {
-  constructor(private readonly databaseService: DatabaseService) { }
+  constructor(private readonly databaseService: DatabaseService) {}
 
   async listActivePrescriptions(patientId: string) {
     return this.databaseService.client.prescription.findMany({
@@ -173,6 +173,39 @@ export class PatientService {
     });
   }
 
+  async searchPatients(query: { q?: string; page?: number; limit?: number }) {
+    const q = (query.q || '').trim();
+    const page = query.page && query.page > 0 ? query.page : 1;
+    const limit = query.limit && query.limit > 0 ? query.limit : 50;
+    const where: any = {
+      role: 'PATIENT'
+    };
+    if (q) {
+      where.OR = [
+        { fullName: { contains: q, mode: 'insensitive' } },
+        { phoneNumber: { contains: q } }
+      ];
+    }
+    const [items, total] = await Promise.all([
+      this.databaseService.client.user.findMany({
+        where,
+        select: {
+          id: true,
+          fullName: true,
+          phoneNumber: true,
+          profile: {
+            select: { gender: true, birthDate: true, address: true }
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit
+      }),
+      this.databaseService.client.user.count({ where })
+    ]);
+    return { data: items, total, page, limit };
+  }
+
   async updatePatient(
     id: string,
     data: {
@@ -190,23 +223,23 @@ export class PatientService {
         phoneNumber: phoneNumber ?? undefined,
         profile: profile
           ? {
-            upsert: {
-              create: {
-                gender: (profile.gender as any) ?? undefined,
-                birthDate: profile.birthDate
-                  ? new Date(profile.birthDate)
-                  : undefined,
-                address: profile.address ?? undefined
-              },
-              update: {
-                gender: (profile.gender as any) ?? undefined,
-                birthDate: profile.birthDate
-                  ? new Date(profile.birthDate)
-                  : undefined,
-                address: profile.address ?? undefined
+              upsert: {
+                create: {
+                  gender: (profile.gender as any) ?? undefined,
+                  birthDate: profile.birthDate
+                    ? new Date(profile.birthDate)
+                    : undefined,
+                  address: profile.address ?? undefined
+                },
+                update: {
+                  gender: (profile.gender as any) ?? undefined,
+                  birthDate: profile.birthDate
+                    ? new Date(profile.birthDate)
+                    : undefined,
+                  address: profile.address ?? undefined
+                }
               }
             }
-          }
           : undefined
       },
       select: {

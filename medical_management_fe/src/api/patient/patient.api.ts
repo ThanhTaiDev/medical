@@ -45,6 +45,13 @@ export const patientApi = {
         return { data: items, statusCode: res.data?.statusCode ?? 200 } as unknown as IGetPatientResponse;
     },
 
+    async searchPatients(q: string, page?: number, limit?: number): Promise<IGetPatientResponse> {
+        const res = await axiosInstance.get('/patient/search', { params: { q, page, limit } });
+        const payload = res.data?.data ?? res.data;
+        const items = Array.isArray(payload?.data) ? payload.data : (Array.isArray(payload) ? payload : []);
+        return { data: items, statusCode: res.data?.statusCode ?? 200 } as unknown as IGetPatientResponse;
+    },
+
     async getPatientsForDoctor(params?: IPaginationQuery): Promise<IGetPatientPaginationResponse> {
         const { page = 1, limit = 10, search, sortBy, sortOrder } = params || {};
         const res = await axiosInstance.get('/doctor/patients', {
