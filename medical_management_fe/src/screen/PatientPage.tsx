@@ -35,6 +35,31 @@ export default function PatientPage() {
     enabled: role === 'PATIENT' && activeTab === 'overview'
   })
 
+  // Lightweight queries for overview aggregation
+  const { data: ovReminders, isLoading: loadingOvReminders } = useQuery({
+    queryKey: ['patient-ov-reminders'],
+    queryFn: patientApi.getReminders,
+    enabled: role === 'PATIENT' && activeTab === 'overview'
+  })
+
+  const { data: ovAlerts, isLoading: loadingOvAlerts } = useQuery({
+    queryKey: ['patient-ov-alerts'],
+    queryFn: patientApi.getAlerts,
+    enabled: role === 'PATIENT' && activeTab === 'overview'
+  })
+
+  const { data: ovAdherence, isLoading: loadingOvAdh } = useQuery({
+    queryKey: ['patient-ov-adherence'],
+    queryFn: patientApi.getAdherence,
+    enabled: role === 'PATIENT' && activeTab === 'overview'
+  })
+
+  const { data: ovPrescriptions, isLoading: loadingOvRx } = useQuery({
+    queryKey: ['patient-ov-prescriptions'],
+    queryFn: patientApi.getActivePrescriptions,
+    enabled: role === 'PATIENT' && activeTab === 'overview'
+  })
+
   const { data: prescriptions, isLoading: loadingPres } = useQuery({
     queryKey: ['patient-prescriptions'],
     queryFn: patientApi.getActivePrescriptions,
@@ -127,26 +152,122 @@ export default function PatientPage() {
               {loadingOverview ? (
                 <div className="text-muted-foreground">Đang tải...</div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="rounded-lg border border-border/20 p-4">
-                    <div className="text-xs text-muted-foreground">Số đơn thuốc</div>
-                    <div className="text-2xl font-bold text-foreground">{(overview as any)?.prescriptionsCount ?? '-'}</div>
-                  </div>
-                  <div className="rounded-lg border border-border/20 p-4">
-                    <div className="text-xs text-muted-foreground">Cảnh báo chưa xử lý</div>
-                    <div className="text-2xl font-bold text-foreground">{(overview as any)?.unresolvedAlerts ?? '-'}</div>
-                  </div>
-                  <div className="rounded-lg border border-border/20 p-4">
-                    <div className="text-xs text-muted-foreground">Tỉ lệ tuân thủ</div>
-                    <div className="text-2xl font-bold text-foreground">{(overview as any)?.adherenceRate != null ? `${Math.round(((overview as any).adherenceRate) * 100)}%` : '-'}</div>
-                  </div>
-                  {/* Fallback raw block if overview has different structure */}
-                  {!(overview as any)?.prescriptionsCount && !(overview as any)?.unresolvedAlerts && !(overview as any)?.adherenceRate && (
-                    <div className="md:col-span-3">
-                      <div className="text-xs text-muted-foreground mb-2">Chi tiết</div>
-                      <pre className="text-xs text-muted-foreground whitespace-pre-wrap">{JSON.stringify(overview, null, 2)}</pre>
+                <div className="space-y-6">
+                  {/* Top stat cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="rounded-lg border border-border/20 p-4">
+                      <div className="text-xs text-muted-foreground">Đơn thuốc đang hoạt động</div>
+                      <div className="text-2xl font-bold text-foreground">{(overview as any)?.activePrescriptions ?? '-'}</div>
                     </div>
-                  )}
+                    <div className="rounded-lg border border-border/20 p-4">
+                      <div className="text-xs text-muted-foreground">Cảnh báo chưa xử lý</div>
+                      <div className="text-2xl font-bold text-foreground">{(overview as any)?.unresolvedAlerts ?? '-'}</div>
+                    </div>
+                    <div className="rounded-lg border border-border/20 p-4">
+                      <div className="text-xs text-muted-foreground">Tỉ lệ tuân thủ</div>
+                      <div className="text-2xl font-bold text-foreground">{(overview as any)?.adherenceRate != null ? `${Math.round(((overview as any).adherenceRate) * 100)}%` : '-'}</div>
+                    </div>
+                    <div className="rounded-lg border border-border/20 p-4">
+                      <div className="text-xs text-muted-foreground">Lần ghi nhận gần nhất</div>
+                      <div className="text-2xl font-bold text-foreground">{Array.isArray(ovAdherence) && ovAdherence[0]?.takenAt ? new Date(ovAdherence[0].takenAt).toLocaleDateString() : '-'}</div>
+                    </div>
+                  </div>
+
+                  {/* Active prescriptions preview */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="rounded-xl border border-border/20 p-4 bg-background/60">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="text-sm font-semibold text-foreground">Đơn thuốc</div>
+                        {!loadingOvRx && Array.isArray(ovPrescriptions) && ovPrescriptions.length > 0 && <div className="text-xs text-muted-foreground">{ovPrescriptions.length}</div>}
+                      </div>
+                      {loadingOvRx ? (
+                        <div className="text-muted-foreground text-sm">Đang tải...</div>
+                      ) : Array.isArray(ovPrescriptions) && ovPrescriptions.length > 0 ? (
+                        <div className="space-y-2">
+                          {ovPrescriptions.slice(0,3).map((pr: any) => (
+                            <div key={pr.id} className="rounded-lg border border-border/20 p-3">
+                              <div className="flex items-center justify-between">
+                                <span className={`inline-flex px-2 py-0.5 rounded-md text-[11px] font-medium ${pr.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' : 'bg-zinc-100 text-zinc-600'}`}>{pr.status}</span>
+                                <span className="text-xs text-muted-foreground">{pr.startDate ? new Date(pr.startDate).toLocaleDateString() : ''}</span>
+                              </div>
+                              {pr.notes && <div className="mt-1 text-xs text-muted-foreground line-clamp-1">{pr.notes}</div>}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-muted-foreground">Không có đơn thuốc</div>
+                      )}
+                    </div>
+
+                    {/* Upcoming reminders */}
+                    <div className="rounded-xl border border-border/20 p-4 bg-background/60">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="text-sm font-semibold text-foreground">Nhắc nhở sắp tới</div>
+                        {!loadingOvReminders && Array.isArray(ovReminders) && ovReminders.length > 0 && <div className="text-xs text-muted-foreground">{ovReminders.length}</div>}
+                      </div>
+                      {loadingOvReminders ? (
+                        <div className="text-muted-foreground text-sm">Đang tải...</div>
+                      ) : Array.isArray(ovReminders) && ovReminders.length > 0 ? (
+                        <div className="space-y-2">
+                          {ovReminders.slice(0,5).map((r: any, idx: number) => (
+                            <div key={idx} className="flex items-center justify-between rounded-lg border border-border/20 p-3">
+                              <div className="text-xs text-muted-foreground">{r.date}</div>
+                              <div className="text-sm font-medium text-foreground truncate">{r.medicationName} • {r.dosage}</div>
+                              <div className="text-xs text-muted-foreground">{r.time?.slice?.(0,5)}</div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-muted-foreground">Không có nhắc nhở</div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Alerts and recent adherence */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="rounded-xl border border-border/20 p-4 bg-background/60">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="text-sm font-semibold text-foreground">Cảnh báo</div>
+                        {!loadingOvAlerts && Array.isArray(ovAlerts) && <div className="text-xs text-muted-foreground">{ovAlerts.filter((a: any) => !a.resolved).length} chưa xử lý</div>}
+                      </div>
+                      {loadingOvAlerts ? (
+                        <div className="text-muted-foreground text-sm">Đang tải...</div>
+                      ) : Array.isArray(ovAlerts) && ovAlerts.length > 0 ? (
+                        <div className="space-y-2">
+                          {ovAlerts.slice(0,4).map((a: any, idx: number) => (
+                            <div key={idx} className="rounded-lg border border-border/20 p-3 flex items-center justify-between">
+                              <div className="text-sm text-foreground truncate">{a.type === 'MISSED_DOSE' ? 'Bỏ liều' : a.type === 'LOW_ADHERENCE' ? 'Tuân thủ thấp' : 'Cảnh báo'}</div>
+                              <span className={`inline-flex px-2 py-0.5 rounded-md text-[11px] font-medium ${a.resolved ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{a.resolved ? 'Đã xử lý' : 'Chưa xử lý'}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-muted-foreground">Không có cảnh báo</div>
+                      )}
+                    </div>
+
+                    <div className="rounded-xl border border-border/20 p-4 bg-background/60">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="text-sm font-semibold text-foreground">Nhật ký tuân thủ gần đây</div>
+                      </div>
+                      {loadingOvAdh ? (
+                        <div className="text-muted-foreground text-sm">Đang tải...</div>
+                      ) : Array.isArray(ovAdherence) && ovAdherence.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {ovAdherence.slice(0,8).map((log: any) => (
+                            <div key={log.id} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-border/20 bg-background">
+                              <span className="text-xs text-muted-foreground">{new Date(log.takenAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                              <span className={`${log.status === 'TAKEN' ? 'bg-emerald-100 text-emerald-700' : log.status === 'MISSED' ? 'bg-amber-100 text-amber-700' : 'bg-zinc-100 text-zinc-700'} inline-flex px-2 py-0.5 rounded-md text-[11px] font-medium`}>
+                                {log.status === 'TAKEN' ? 'Đã uống' : log.status === 'MISSED' ? 'Bỏ liều' : 'Bỏ qua'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-muted-foreground">Không có dữ liệu</div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
