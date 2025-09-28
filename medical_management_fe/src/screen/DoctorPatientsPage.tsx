@@ -261,6 +261,23 @@ export default function DoctorPatientsPage() {
     setShowPassword(!showPassword)
   }
 
+  const calculateAge = (patient: any) => {
+    if (patient.userInfo?.birthYear) {
+      return new Date().getFullYear() - patient.userInfo.birthYear;
+    }
+    if (patient.profile?.birthDate) {
+      const birthDate = new Date(patient.profile.birthDate);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      return age;
+    }
+    return null;
+  };
+
   const patients = (data as any)?.data ?? []
   const pagination = (data as any)?.pagination
 
@@ -412,7 +429,7 @@ export default function DoctorPatientsPage() {
                           <div className="w-1 h-1 rounded-full bg-blue-500"></div>
                           <span>{p.userInfo.gender === 'MALE' ? 'Nam' : p.userInfo.gender === 'FEMALE' ? 'Nữ' : 'Khác'}</span>
                           <span className="text-muted-foreground/60">•</span>
-                          <span>{p.userInfo.birthYear || 'N/A'} tuổi</span>
+                          <span>{calculateAge(p) ? `${calculateAge(p)} tuổi` : 'N/A'}</span>
                         </div>
                       )}
                       
