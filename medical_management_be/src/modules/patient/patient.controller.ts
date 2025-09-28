@@ -56,7 +56,15 @@ export class PatientController {
     body: {
       fullName?: string;
       phoneNumber?: string;
-      profile?: { gender?: string; birthDate?: string; address?: string };
+      password?: string;
+      role?: string;
+      status?: string;
+      profile?: { 
+        gender?: string; 
+        birthDate?: string; 
+        address?: string;
+        birthYear?: number;
+      };
     }
   ) {
     return this.patientService.updatePatient(id, body);

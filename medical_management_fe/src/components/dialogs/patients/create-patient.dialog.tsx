@@ -479,7 +479,7 @@ export function CreatePatientDialog({ isOpen, onClose, onCreateSuccess, defaultR
                   <div className="h-2 w-2 rounded-full bg-purple-500"></div>
                   <h3 className="text-sm font-semibold text-foreground">Thông tin tùy chỉnh</h3>
                 </div>
-                <div className='space-y-2 h-40 overflow-y-auto'>
+                <div className='space-y-2 h-60 overflow-y-auto rounded-md border border-border/20 bg-background/50 p-2'>
                   {customFields.map((row, idx) => (
                     <div key={idx} className='space-y-2'>
                       <Input 

@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '@/core/database/database.service';
 import { AdherenceStatus, PrescriptionStatus } from '@prisma/client';
+import { Utils } from '@/utils/utils';
 
 @Injectable()
 export class PatientService {
@@ -213,42 +214,89 @@ export class PatientService {
     data: {
       fullName?: string;
       phoneNumber?: string;
-      profile?: { gender?: string; birthDate?: string; address?: string };
+      password?: string;
+      role?: string;
+      status?: string;
+      profile?: { 
+        gender?: string; 
+        birthDate?: string; 
+        address?: string;
+        birthYear?: number;
+      };
     }
   ) {
     const tx = this.databaseService.client;
-    const { fullName, phoneNumber, profile } = data || {};
+    const { fullName, phoneNumber, password, role, status, profile } = data || {};
+    
+    // Prepare update data
+    const updateData: any = {
+      fullName: fullName ?? undefined,
+      phoneNumber: phoneNumber ?? undefined,
+    };
+
+    // Add password if provided
+    if (password) {
+      updateData.password = await Utils.HashUtils.hashPassword(password);
+    }
+
+    // Add role if provided
+    if (role) {
+      updateData.role = role as any;
+    }
+
+    // Add status if provided
+    if (status) {
+      updateData.status = status as any;
+    }
+
+    // Handle profile update
+    if (profile) {
+      const profileData: any = {};
+      
+      // Only include gender if it's not empty and valid
+      if (profile.gender && profile.gender.trim() !== '') {
+        profileData.gender = profile.gender as any;
+      }
+      
+      // Handle birth date
+      if (profile.birthDate) {
+        profileData.birthDate = new Date(profile.birthDate);
+      } else if (profile.birthYear) {
+        profileData.birthDate = new Date(profile.birthYear, 0, 1);
+      }
+      
+      // Only include address if it's not empty
+      if (profile.address && profile.address.trim() !== '') {
+        profileData.address = profile.address;
+      }
+      
+      // Only create profile update if there's data to update
+      if (Object.keys(profileData).length > 0) {
+        updateData.profile = {
+          upsert: {
+            create: profileData,
+            update: profileData
+          }
+        };
+      }
+    }
+
     const updated = await tx.user.update({
       where: { id },
-      data: {
-        fullName: fullName ?? undefined,
-        phoneNumber: phoneNumber ?? undefined,
-        profile: profile
-          ? {
-            upsert: {
-              create: {
-                gender: (profile.gender as any) ?? undefined,
-                birthDate: profile.birthDate
-                  ? new Date(profile.birthDate)
-                  : undefined,
-                address: profile.address ?? undefined
-              },
-              update: {
-                gender: (profile.gender as any) ?? undefined,
-                birthDate: profile.birthDate
-                  ? new Date(profile.birthDate)
-                  : undefined,
-                address: profile.address ?? undefined
-              }
-            }
-          }
-          : undefined
-      },
+      data: updateData,
       select: {
         id: true,
         fullName: true,
         phoneNumber: true,
-        profile: { select: { gender: true, birthDate: true, address: true } }
+        role: true,
+        status: true,
+        profile: { 
+          select: { 
+            gender: true, 
+            birthDate: true, 
+            address: true
+          } 
+        }
       }
     });
     return updated;
