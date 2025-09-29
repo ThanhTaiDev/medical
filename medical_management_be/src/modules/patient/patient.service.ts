@@ -151,6 +151,13 @@ export class PatientService {
     const targetDateString = targetDate.toISOString().slice(0, 10);
     const filteredReminders = reminders.filter(r => r.date === targetDateString);
     
+    console.log('=== GET REMINDERS DEBUG ===');
+    console.log('Target date:', targetDateString);
+    console.log('Total reminders generated:', reminders.length);
+    console.log('Filtered reminders:', filteredReminders.length);
+    console.log('Adherence logs count:', adherenceLogs.length);
+    console.log('Sample reminders:', filteredReminders.slice(0, 2));
+    
     return filteredReminders;
   }
 

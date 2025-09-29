@@ -23,7 +23,7 @@ import {
   formatTimeSlot, 
   getCurrentTimeInVietnamese 
 } from "@/utils/timeValidation";
-import { Calendar } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 
 // Types for better type safety
 interface Prescription {
@@ -112,24 +112,20 @@ export default function PatientPage() {
 
   // Date picker state for reminders
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().slice(0, 10));
+  
+  // Time filter state for reminders
+  const [selectedTimeFilter, setSelectedTimeFilter] = useState<string>('all'); // 'all', 'Sáng', 'Trưa', 'Chiều', 'Tối'
+  
+  // Check if selected date is today
+  const isToday = selectedDate === new Date().toISOString().slice(0, 10);
+
+  // Filter reminders by time slot - will be defined after reminders query
 
   // Debug dialog state changes
   useEffect(() => {
     console.log('Dialog state changed:', timeValidationDialog);
   }, [timeValidationDialog]);
 
-  // Test function to force show dialog
-  const testShowDialog = () => {
-    console.log('Testing dialog show');
-    setTimeValidationDialog({
-      open: true,
-      reminder: {
-        medicationName: 'Test Medication',
-        time: 'Sáng',
-        uniqueDoseId: 'test-id'
-      }
-    });
-  };
 
   // Utility functions
   const formatDate = (dateString: string): string => {
@@ -255,6 +251,12 @@ export default function PatientPage() {
     staleTime: 0, // Always refetch to get latest status
   });
 
+  // Filter reminders by time slot
+  const filteredReminders = reminders?.filter((reminder: any) => {
+    if (selectedTimeFilter === 'all') return true;
+    return reminder.time === selectedTimeFilter;
+  }) || [];
+
   const { data: alerts, isLoading: loadingAlerts } = useQuery({
     queryKey: ["patient-alerts"],
     queryFn: patientApi.getAlerts,
@@ -361,7 +363,7 @@ export default function PatientPage() {
       
       // Refresh reminders and related data with more aggressive invalidation
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["patient-reminders"] }),
+        queryClient.invalidateQueries({ queryKey: ["patient-reminders"] }), // This will invalidate all patient-reminders queries
         queryClient.invalidateQueries({ queryKey: ["patient-overview"] }),
         queryClient.invalidateQueries({ queryKey: ["patient-adherence"] }),
         queryClient.invalidateQueries({ queryKey: ["patient-ov-reminders"] }),
@@ -369,8 +371,8 @@ export default function PatientPage() {
         queryClient.invalidateQueries({ queryKey: ["patient-ov-prescriptions"] })
       ]);
       
-      // Force refetch reminders immediately
-      queryClient.refetchQueries({ queryKey: ["patient-reminders", selectedDate] });
+      // Force refetch reminders for the selected date
+      await queryClient.refetchQueries({ queryKey: ["patient-reminders", selectedDate] });
       
       toast.success("Xác nhận uống thuốc thành công!", {
         duration: 3000,
@@ -436,7 +438,7 @@ export default function PatientPage() {
       
       // Refresh reminders and related data with more aggressive invalidation
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["patient-reminders"] }),
+        queryClient.invalidateQueries({ queryKey: ["patient-reminders"] }), // This will invalidate all patient-reminders queries
         queryClient.invalidateQueries({ queryKey: ["patient-overview"] }),
         queryClient.invalidateQueries({ queryKey: ["patient-adherence"] }),
         queryClient.invalidateQueries({ queryKey: ["patient-ov-reminders"] }),
@@ -444,8 +446,8 @@ export default function PatientPage() {
         queryClient.invalidateQueries({ queryKey: ["patient-ov-prescriptions"] })
       ]);
       
-      // Force refetch reminders immediately
-      queryClient.refetchQueries({ queryKey: ["patient-reminders", selectedDate] });
+      // Force refetch reminders for the selected date
+      await queryClient.refetchQueries({ queryKey: ["patient-reminders", selectedDate] });
       
       toast.success("Đã đánh dấu bỏ lỡ thuốc!", {
         duration: 3000,
@@ -1174,7 +1176,12 @@ export default function PatientPage() {
                   </p>
                 </div>
                 <Badge variant="outline" className="text-xs">
-                  {Array.isArray(reminders) ? reminders.length : 0} nhắc nhở
+                  {filteredReminders.length} nhắc nhở
+                  {selectedTimeFilter !== 'all' && (
+                    <span className="ml-1 text-muted-foreground">
+                      ({Array.isArray(reminders) ? reminders.length : 0} tổng)
+                    </span>
+                  )}
                 </Badge>
               </div>
 
@@ -1193,14 +1200,99 @@ export default function PatientPage() {
                     className="px-3 py-1 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   />
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setSelectedDate(new Date().toISOString().slice(0, 10))}
-                  className="text-xs"
-                >
-                  Hôm nay
-                </Button>
+                <div className="flex gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const yesterday = new Date();
+                      yesterday.setDate(yesterday.getDate() - 1);
+                      setSelectedDate(yesterday.toISOString().slice(0, 10));
+                    }}
+                    className="text-xs flex items-center gap-1"
+                  >
+                    <ChevronLeft className="h-3 w-3" />
+                    Hôm qua
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setSelectedDate(new Date().toISOString().slice(0, 10))}
+                    className="text-xs flex items-center gap-1"
+                  >
+                    <Calendar className="h-3 w-3" />
+                    Hôm nay
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const tomorrow = new Date();
+                      tomorrow.setDate(tomorrow.getDate() + 1);
+                      setSelectedDate(tomorrow.toISOString().slice(0, 10));
+                    }}
+                    className="text-xs flex items-center gap-1"
+                  >
+                    Ngày mai
+                    <ChevronRight className="h-3 w-3" />
+                  </Button>
+                </div>
+                {!isToday && (
+                  <div className="flex items-center gap-1 text-amber-600 text-xs">
+                    <Clock className="h-3 w-3" />
+                    <span>Chỉ có thể thực hiện hành động vào ngày hôm nay</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Time Filter */}
+              <div className="flex items-center gap-3 p-4 bg-muted/30 rounded-lg">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">Lọc theo buổi:</span>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant={selectedTimeFilter === 'all' ? 'default' : 'outline'}
+                      onClick={() => setSelectedTimeFilter('all')}
+                      className="text-xs"
+                    >
+                      Tất cả
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={selectedTimeFilter === 'Sáng' ? 'default' : 'outline'}
+                      onClick={() => setSelectedTimeFilter('Sáng')}
+                      className="text-xs"
+                    >
+                      Sáng
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={selectedTimeFilter === 'Trưa' ? 'default' : 'outline'}
+                      onClick={() => setSelectedTimeFilter('Trưa')}
+                      className="text-xs"
+                    >
+                      Trưa
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={selectedTimeFilter === 'Chiều' ? 'default' : 'outline'}
+                      onClick={() => setSelectedTimeFilter('Chiều')}
+                      className="text-xs"
+                    >
+                      Chiều
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={selectedTimeFilter === 'Tối' ? 'default' : 'outline'}
+                      onClick={() => setSelectedTimeFilter('Tối')}
+                      className="text-xs"
+                    >
+                      Tối
+                    </Button>
+                  </div>
+                </div>
               </div>
 
               {/* Reminders List */}
@@ -1210,9 +1302,9 @@ export default function PatientPage() {
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                     <span className="ml-3 text-muted-foreground">Đang tải nhắc nhở...</span>
                   </div>
-                ) : Array.isArray(reminders) && reminders.length > 0 ? (
+                ) : filteredReminders.length > 0 ? (
                   <div className="space-y-4">
-                    {reminders.map((r: any, idx: number) => (
+                    {filteredReminders.map((r: any, idx: number) => (
                       <Card key={idx} className="border-border/20 hover:shadow-md transition-all duration-200">
                         <CardContent className="p-4">
                           <div className="flex items-start gap-4">
@@ -1281,7 +1373,8 @@ export default function PatientPage() {
                               </div>
 
                               {/* Action Button */}
-                              {r.status === 'PENDING' && (
+                              {/* Action buttons - only show for today */}
+                              {r.status === 'PENDING' && isToday && (
                                 <div className="mt-4 flex gap-2">
                                   <Button 
                                     size="sm" 
@@ -1310,6 +1403,14 @@ export default function PatientPage() {
                                     )}
                                     Đánh dấu bỏ lỡ
                                   </Button>
+                                </div>
+                              )}
+                              
+                              {/* Show info message for non-today dates */}
+                              {r.status === 'PENDING' && !isToday && (
+                                <div className="mt-4 flex items-center gap-2 text-muted-foreground bg-muted/30 px-3 py-2 rounded-lg">
+                                  <Clock className="h-4 w-4" />
+                                  <span className="text-sm">Chỉ có thể thực hiện hành động vào ngày hôm nay</span>
                                 </div>
                               )}
                               
@@ -1345,10 +1446,25 @@ export default function PatientPage() {
                 ) : (
                   <div className="text-center py-12">
                     <Clock className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
-                    <h3 className="text-lg font-semibold text-foreground mb-2">Không có nhắc nhở</h3>
+                    <h3 className="text-lg font-semibold text-foreground mb-2">
+                      {selectedTimeFilter === 'all' ? 'Không có nhắc nhở' : `Không có nhắc nhở buổi ${selectedTimeFilter}`}
+                    </h3>
                     <p className="text-muted-foreground">
-                      Bạn không có lịch uống thuốc nào cho hôm nay
+                      {selectedTimeFilter === 'all' 
+                        ? 'Bạn không có lịch uống thuốc nào cho ngày này'
+                        : `Bạn không có lịch uống thuốc nào cho buổi ${selectedTimeFilter}`
+                      }
                     </p>
+                    {selectedTimeFilter !== 'all' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setSelectedTimeFilter('all')}
+                        className="mt-3"
+                      >
+                        Xem tất cả
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
