@@ -64,6 +64,10 @@ interface Reminder {
   time: string;
   date: string;
   prescriptionId?: string;
+  prescriptionItemId?: string;
+  status: 'PENDING' | 'TAKEN' | 'MISSED' | 'SKIPPED';
+  route?: string;
+  instructions?: string;
 }
 
 interface OverviewData {
@@ -88,6 +92,7 @@ export default function PatientPage() {
   const [activeTab, setActiveTab] = useState<PatientTab>("overview");
   const [selectedPrescriptionId, setSelectedPrescriptionId] = useState<string | null>(null);
   const [confirmItemId, setConfirmItemId] = useState<string>("");
+  const [loadingActions, setLoadingActions] = useState<Record<string, boolean>>({});
 
   // Utility functions
   const formatDate = (dateString: string): string => {
@@ -211,6 +216,7 @@ export default function PatientPage() {
     queryKey: ["patient-reminders"],
     queryFn: patientApi.getReminders,
     enabled: role === "PATIENT" && activeTab === "reminders",
+    staleTime: 0, // Always refetch to get latest status
   });
 
   const { data: alerts, isLoading: loadingAlerts } = useQuery({
@@ -255,6 +261,92 @@ export default function PatientPage() {
         position: "top-center",
         style: { background: "#EF4444", color: "#fff" },
       });
+    }
+  };
+
+  const handleConfirmIntakeFromReminder = async (reminder: any) => {
+    if (!reminder.prescriptionId || !reminder.prescriptionItemId) return;
+    
+    const actionKey = `confirm-${reminder.id}`;
+    setLoadingActions(prev => ({ ...prev, [actionKey]: true }));
+    
+    try {
+      await patientApi.confirmIntake(reminder.prescriptionId, {
+        prescriptionItemId: reminder.prescriptionItemId,
+        takenAt: new Date().toISOString(),
+        status: "TAKEN",
+        notes: reminder.uniqueDoseId, // Send unique dose ID to track specific time slot
+      });
+      
+      // Refresh reminders and related data with more aggressive invalidation
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["patient-reminders"] }),
+        queryClient.invalidateQueries({ queryKey: ["patient-overview"] }),
+        queryClient.invalidateQueries({ queryKey: ["patient-adherence"] }),
+        queryClient.invalidateQueries({ queryKey: ["patient-ov-reminders"] }),
+        queryClient.invalidateQueries({ queryKey: ["patient-ov-adherence"] }),
+        queryClient.invalidateQueries({ queryKey: ["patient-ov-prescriptions"] })
+      ]);
+      
+      // Force refetch reminders immediately
+      queryClient.refetchQueries({ queryKey: ["patient-reminders"] });
+      
+      toast.success("Xác nhận uống thuốc thành công!", {
+        duration: 3000,
+        position: "top-center",
+        style: { background: "#10B981", color: "#fff" },
+      });
+    } catch (error: any) {
+      console.error('Confirm intake from reminder error:', error);
+      toast.error(error?.response?.data?.message || "Có lỗi xảy ra khi xác nhận uống thuốc", {
+        duration: 4000,
+        position: "top-center",
+        style: { background: "#EF4444", color: "#fff" },
+      });
+    } finally {
+      setLoadingActions(prev => ({ ...prev, [actionKey]: false }));
+    }
+  };
+
+  const handleMarkMissedFromReminder = async (reminder: any) => {
+    if (!reminder.prescriptionId) return;
+    
+    const actionKey = `missed-${reminder.id}`;
+    setLoadingActions(prev => ({ ...prev, [actionKey]: true }));
+    
+    try {
+      await patientApi.markMissed(reminder.prescriptionId, {
+        prescriptionItemId: reminder.prescriptionItemId,
+        notes: reminder.uniqueDoseId, // Send unique dose ID to track specific time slot
+      });
+      
+      // Refresh reminders and related data with more aggressive invalidation
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["patient-reminders"] }),
+        queryClient.invalidateQueries({ queryKey: ["patient-overview"] }),
+        queryClient.invalidateQueries({ queryKey: ["patient-adherence"] }),
+        queryClient.invalidateQueries({ queryKey: ["patient-ov-reminders"] }),
+        queryClient.invalidateQueries({ queryKey: ["patient-ov-adherence"] }),
+        queryClient.invalidateQueries({ queryKey: ["patient-ov-prescriptions"] })
+      ]);
+      
+      // Force refetch reminders immediately
+      queryClient.refetchQueries({ queryKey: ["patient-reminders"] });
+      
+      toast.success("Đã đánh dấu bỏ lỡ thuốc!", {
+        duration: 3000,
+        position: "top-center",
+        style: { background: "#F59E0B", color: "#fff" },
+      });
+    } catch (error: any) {
+      console.error('Mark missed from reminder error:', error);
+      toast.error(error?.response?.data?.message || "Có lỗi xảy ra khi đánh dấu bỏ lỡ", {
+        duration: 4000,
+        position: "top-center",
+        style: { background: "#EF4444", color: "#fff" },
+      });
+    } finally {
+      setLoadingActions(prev => ({ ...prev, [actionKey]: false }));
     }
   };
 
@@ -455,16 +547,31 @@ export default function PatientPage() {
                         {ovReminders.slice(0, 5).map((r: Reminder, idx: number) => (
                           <div key={idx} className="flex items-center justify-between rounded-lg border border-border/20 p-3 hover:bg-muted/50 transition-colors">
                             <div className="flex items-center gap-3">
-                              <div className="h-8 w-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-semibold">
+                              <div className={`h-8 w-8 rounded-lg flex items-center justify-center text-xs font-semibold ${
+                                r.status === 'TAKEN' ? 'bg-green-100 text-green-700' :
+                                r.status === 'MISSED' ? 'bg-amber-100 text-amber-700' :
+                                r.status === 'SKIPPED' ? 'bg-gray-100 text-gray-700' :
+                                'bg-blue-100 text-blue-700'
+                              }`}>
                                 {r.time?.slice(0, 5) || "--:--"}
                               </div>
                               <div>
                                 <p className="text-sm font-medium text-foreground">
                                   {r.medicationName || "Thuốc"} • {r.dosage}
                                 </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {r.date}
-                                </p>
+                                <div className="flex items-center gap-2">
+                                  <p className="text-xs text-muted-foreground">
+                                    {r.date}
+                                  </p>
+                                  <Badge 
+                                    variant={r.status === 'TAKEN' ? 'default' : r.status === 'MISSED' ? 'destructive' : r.status === 'SKIPPED' ? 'secondary' : 'outline'}
+                                    className="text-xs"
+                                  >
+                                    {r.status === 'TAKEN' ? 'Đã uống' : 
+                                     r.status === 'MISSED' ? 'Bỏ lỡ' : 
+                                     r.status === 'SKIPPED' ? 'Bỏ qua' : 'Chưa uống'}
+                                  </Badge>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -954,47 +1061,169 @@ export default function PatientPage() {
 
           {/* Reminders */}
           {activeTab === "reminders" && (
-            <div className="rounded-xl border border-border/20 bg-card p-4">
-              {loadingReminders ? (
-                <div className="text-muted-foreground">Đang tải...</div>
-              ) : Array.isArray(reminders) ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {reminders.map((r: any, idx: number) => (
-                    <div
-                      key={idx}
-                      className="rounded-2xl border border-border/20 bg-background/70 shadow-sm hover:shadow-md transition-shadow"
-                    >
-                      <div className="p-4 flex items-start gap-4">
-                        <div className="shrink-0 w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center text-sm font-semibold">
-                          {r.time?.slice?.(0, 5) || "--:--"}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="text-sm font-semibold text-foreground truncate">
-                                {r.medicationName || "Thuốc"}{" "}
-                                <span className="text-muted-foreground">•</span>{" "}
-                                {r.dosage}
-                              </div>
-                              <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                                <span>{r.date}</span>
-                                {r.prescriptionId && (
-                                  <span className="h-3 w-px bg-border/50" />
-                                )}
-                                {r.prescriptionId && <span>Đơn thuốc</span>}
+            <div className="space-y-6">
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold text-foreground">Nhắc nhở uống thuốc</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Lịch trình uống thuốc hôm nay
+                  </p>
+                </div>
+                <Badge variant="outline" className="text-xs">
+                  {Array.isArray(reminders) ? reminders.length : 0} nhắc nhở
+                </Badge>
+              </div>
+
+              {/* Reminders List */}
+              <div className="rounded-xl border border-border/20 bg-card p-6">
+                {loadingReminders ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <span className="ml-3 text-muted-foreground">Đang tải nhắc nhở...</span>
+                  </div>
+                ) : Array.isArray(reminders) && reminders.length > 0 ? (
+                  <div className="space-y-4">
+                    {reminders.map((r: any, idx: number) => (
+                      <Card key={idx} className="border-border/20 hover:shadow-md transition-all duration-200">
+                        <CardContent className="p-4">
+                          <div className="flex items-start gap-4">
+                            {/* Time Badge */}
+                            <div className="shrink-0">
+                              <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white flex flex-col items-center justify-center">
+                                <div className="text-lg font-bold">
+                                  {r.time?.slice?.(0, 5) || "--:--"}
+                                </div>
+                                <div className="text-xs opacity-90">Hôm nay</div>
                               </div>
                             </div>
+
+                            {/* Medication Info */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-3 mb-3">
+                                <div className="min-w-0">
+                                  <h3 className="text-lg font-semibold text-foreground">
+                                    {r.medicationName || "Thuốc"}
+                                  </h3>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <Badge variant="secondary" className="text-xs">
+                                      {r.dosage}
+                                    </Badge>
+                                    <Badge variant="outline" className="text-xs">
+                                      {r.route || "Đường uống"}
+                                    </Badge>
+                                  </div>
+                                </div>
+                                <div className="shrink-0">
+                                  <Badge 
+                                    variant={r.status === 'TAKEN' ? 'default' : r.status === 'MISSED' ? 'destructive' : r.status === 'SKIPPED' ? 'secondary' : 'outline'}
+                                    className="text-xs"
+                                  >
+                                    {r.status === 'TAKEN' ? 'Đã uống' : 
+                                     r.status === 'MISSED' ? 'Đã bỏ lỡ' : 
+                                     r.status === 'SKIPPED' ? 'Đã bỏ qua' : 'Chưa uống'}
+                                  </Badge>
+                                </div>
+                              </div>
+
+                              {/* Additional Info */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                  <Clock className="h-4 w-4" />
+                                  <span>Thời gian: {r.time?.slice?.(0, 5) || "--:--"}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                  <Pill className="h-4 w-4" />
+                                  <span>Liều lượng: {r.dosage}</span>
+                                </div>
+                                {r.instructions && (
+                                  <div className="md:col-span-2 flex items-start gap-2 text-muted-foreground">
+                                    <span className="font-medium">Hướng dẫn:</span>
+                                    <span>{r.instructions}</span>
+                                  </div>
+                                )}
+                                {r.prescriptionId && (
+                                  <div className="md:col-span-2 flex items-center gap-2 text-muted-foreground">
+                                    <span className="font-medium">Đơn thuốc:</span>
+                                    <code className="text-xs bg-muted/20 px-2 py-1 rounded">
+                                      {r.prescriptionId.slice(0, 8)}...
+                                    </code>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Action Button */}
+                              {r.status === 'PENDING' && (
+                                <div className="mt-4 flex gap-2">
+                                  <Button 
+                                    size="sm" 
+                                    className="bg-green-600 hover:bg-green-700 text-white"
+                                    onClick={() => handleConfirmIntakeFromReminder(r)}
+                                    disabled={loadingActions[`confirm-${r.id}`]}
+                                  >
+                                    {loadingActions[`confirm-${r.id}`] ? (
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                    ) : (
+                                      <CheckCircle className="h-4 w-4 mr-2" />
+                                    )}
+                                    Xác nhận đã uống
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                                    onClick={() => handleMarkMissedFromReminder(r)}
+                                    disabled={loadingActions[`missed-${r.id}`]}
+                                  >
+                                    {loadingActions[`missed-${r.id}`] ? (
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-amber-700 mr-2"></div>
+                                    ) : (
+                                      <XCircle className="h-4 w-4 mr-2" />
+                                    )}
+                                    Đánh dấu bỏ lỡ
+                                  </Button>
+                                </div>
+                              )}
+                              
+                              {/* Show completion message for taken medications */}
+                              {r.status === 'TAKEN' && (
+                                <div className="mt-4 flex items-center gap-2 text-green-700 bg-green-50 px-3 py-2 rounded-lg">
+                                  <CheckCircle className="h-4 w-4" />
+                                  <span className="text-sm font-medium">Đã xác nhận uống thuốc</span>
+                                </div>
+                              )}
+                              
+                              {/* Show missed message */}
+                              {r.status === 'MISSED' && (
+                                <div className="mt-4 flex items-center gap-2 text-amber-700 bg-amber-50 px-3 py-2 rounded-lg">
+                                  <XCircle className="h-4 w-4" />
+                                  <span className="text-sm font-medium">Đã đánh dấu bỏ lỡ</span>
+                                </div>
+                              )}
+                              
+                              {/* Show skipped message */}
+                              {r.status === 'SKIPPED' && (
+                                <div className="mt-4 flex items-center gap-2 text-gray-700 bg-gray-50 px-3 py-2 rounded-lg">
+                                  <XCircle className="h-4 w-4" />
+                                  <span className="text-sm font-medium">Đã bỏ qua</span>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-xs text-muted-foreground">
-                  Không có nhắc nhở
-                </div>
-              )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <Clock className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
+                    <h3 className="text-lg font-semibold text-foreground mb-2">Không có nhắc nhở</h3>
+                    <p className="text-muted-foreground">
+                      Bạn không có lịch uống thuốc nào cho hôm nay
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

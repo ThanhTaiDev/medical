@@ -520,33 +520,31 @@ export class PrescriptionsService {
         throw new BadRequestException('Dòng đơn thuốc không hợp lệ');
       }
 
-      // Check if already taken today (only for TAKEN status)
-      if (data.status === 'TAKEN') {
-        const today = new Date();
-        const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+      // Generate unique dose ID for checking duplicates
+      const today = new Date().toISOString().slice(0, 10);
+      const uniqueDoseId = data.notes || `${data.prescriptionItemId}-${today}-${new Date().getHours()}`;
 
-        const existingLogsToday = await this.databaseService.client.adherenceLog.count({
-          where: {
-            prescriptionItemId: data.prescriptionItemId,
-            patientId: data.patientId,
-            status: 'TAKEN',
-            takenAt: {
-              gte: startOfDay,
-              lt: endOfDay
-            }
-          }
-        });
-
-        console.log('=== ADHERENCE CHECK DEBUG ===');
-        console.log('Prescription item frequency:', item.frequencyPerDay);
-        console.log('Existing logs today:', existingLogsToday);
-        console.log('Date range:', { startOfDay, endOfDay });
-
-        if (existingLogsToday >= item.frequencyPerDay) {
-          throw new BadRequestException(`Bạn đã xác nhận uống thuốc đủ ${item.frequencyPerDay} lần trong ngày hôm nay`);
+      // Check if this specific dose has already been logged
+      const existingLog = await this.databaseService.client.adherenceLog.findFirst({
+        where: {
+          prescriptionItemId: data.prescriptionItemId,
+          patientId: data.patientId,
+          notes: uniqueDoseId,
+          status: data.status
         }
+      });
+
+      if (existingLog) {
+        throw new BadRequestException('Bạn đã xác nhận liều thuốc này rồi');
       }
+    }
+
+    // Generate unique dose ID if not provided in notes
+    let uniqueDoseId = data.notes;
+    if (!uniqueDoseId && data.prescriptionItemId) {
+      const today = new Date().toISOString().slice(0, 10);
+      // This is a fallback - ideally frontend should send the uniqueDoseId
+      uniqueDoseId = `${data.prescriptionItemId}-${today}-${new Date().getHours()}`;
     }
 
     const adherenceLog = await this.databaseService.client.adherenceLog.create({
@@ -557,7 +555,7 @@ export class PrescriptionsService {
         takenAt: data.takenAt,
         status: data.status,
         amount: data.amount,
-        notes: data.notes
+        notes: uniqueDoseId // Store unique dose ID in notes
       },
       include: {
         prescription: {

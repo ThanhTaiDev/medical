@@ -154,6 +154,11 @@ export const patientApi = {
         return res.data?.data ?? res.data;
     },
 
+    async markMissed(prescriptionId: string, body: { prescriptionItemId?: string; notes?: string }) {
+        const res = await axiosInstance.post(`/patient/prescriptions/${prescriptionId}/mark-missed`, body);
+        return res.data?.data ?? res.data;
+    },
+
     async getAdherence() {
         const res = await axiosInstance.get('/patient/adherence');
         return res.data?.data ?? res.data;

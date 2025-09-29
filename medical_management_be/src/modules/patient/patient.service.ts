@@ -32,16 +32,21 @@ export class PatientService {
       sortOrder?: 'asc' | 'desc';
     }
   ) {
+    console.log('=== PATIENT LIST HISTORY DEBUG ===');
+    console.log('Patient ID:', patientId);
+    console.log('Params:', params);
+    
     const page = params?.page && params.page > 0 ? params.page : 1;
     const limit = params?.limit && params.limit > 0 ? params.limit : 20;
     const orderByField = params?.sortBy || 'createdAt';
     const orderDir = params?.sortOrder || 'desc';
+    
+    // Include all prescriptions for history (not just completed/cancelled)
     const where: any = {
-      patientId,
-      status: {
-        in: [PrescriptionStatus.COMPLETED, PrescriptionStatus.CANCELLED]
-      }
+      patientId
     };
+    
+    console.log('Where clause:', where);
     const [items, total] = await Promise.all([
       this.databaseService.client.prescription.findMany({
         where,
@@ -52,6 +57,12 @@ export class PatientService {
       }),
       this.databaseService.client.prescription.count({ where })
     ]);
+
+    console.log('Query results:');
+    console.log('Items count:', items.length);
+    console.log('Total count:', total);
+    console.log('Items:', items.map(item => ({ id: item.id, status: item.status, startDate: item.startDate })));
+
     return { items, total, page, limit };
   }
 
@@ -60,35 +71,86 @@ export class PatientService {
       where: { prescription: { patientId, status: PrescriptionStatus.ACTIVE } },
       include: { prescription: true, medication: true }
     });
+    
+    // Get adherence logs for today to check status
+    const today = new Date();
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+    
+    const adherenceLogs = await this.databaseService.client.adherenceLog.findMany({
+      where: {
+        patientId,
+        takenAt: {
+          gte: startOfDay,
+          lt: endOfDay
+        }
+      }
+    });
+    
     // Expand to schedule entries
     const reminders: Array<{
+      id: string;
       date: string;
       time: string;
       prescriptionId: string;
       prescriptionItemId: string;
+      uniqueDoseId: string;
       medicationName: string;
       dosage: string;
+      status: 'PENDING' | 'TAKEN' | 'MISSED' | 'SKIPPED';
+      route?: string;
+      instructions?: string;
     }> = [];
-    const today = new Date();
+    
     for (const item of items) {
       const start = new Date(item.prescription.startDate);
       const end = item.prescription.endDate
         ? new Date(item.prescription.endDate)
         : new Date(start.getTime() + item.durationDays * 24 * 60 * 60 * 1000);
+      
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
         for (const t of item.timesOfDay) {
+          const reminderDate = d.toISOString().slice(0, 10);
+          
+          // Create unique dose ID for this specific time slot
+          const uniqueDoseId = `${item.id}-${reminderDate}-${t}`;
+          
+          // Check if this specific dose has been logged
+          const relevantLog = adherenceLogs.find(log => 
+            log.prescriptionItemId === item.id && 
+            log.notes === uniqueDoseId // Use notes field to store uniqueDoseId
+          );
+          
+          console.log(`=== DOSE ID DEBUG ===`);
+          console.log(`Unique dose ID: ${uniqueDoseId}`);
+          console.log(`Found log:`, relevantLog ? { id: relevantLog.id, status: relevantLog.status, notes: relevantLog.notes } : 'null');
+          
+          let status: 'PENDING' | 'TAKEN' | 'MISSED' | 'SKIPPED' = 'PENDING';
+          if (relevantLog) {
+            status = relevantLog.status as 'TAKEN' | 'MISSED' | 'SKIPPED';
+          }
+          
           reminders.push({
-            date: d.toISOString().slice(0, 10),
+            id: uniqueDoseId, // Unique ID for each specific dose
+            date: reminderDate,
             time: t,
             prescriptionId: item.prescriptionId,
             prescriptionItemId: item.id,
+            uniqueDoseId: uniqueDoseId, // Add this field for backend tracking
             medicationName: item.medication.name,
-            dosage: item.dosage
+            dosage: item.dosage,
+            status,
+            route: item.route,
+            instructions: item.instructions
           });
         }
       }
     }
-    return reminders;
+    
+    // Filter to only show today's reminders
+    const todayReminders = reminders.filter(r => r.date === today.toISOString().slice(0, 10));
+    
+    return todayReminders;
   }
 
   async confirmIntake(
