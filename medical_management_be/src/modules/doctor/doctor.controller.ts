@@ -124,9 +124,45 @@ export class DoctorController {
 
   // Theo dõi điều trị
   @Get('overview')
-  async overview(@UserInfo() user: IUserFromToken) {
+  async overview(
+    @UserInfo() user: IUserFromToken,
+    @Query('doctorId') doctorId?: string
+  ) {
     this.ensureDoctor(user);
-    return this.doctorService.overview(user.id);
+    const effectiveDoctorId = user.roles === UserRole.ADMIN ? (doctorId || user.id) : user.id;
+    return this.doctorService.overview(effectiveDoctorId);
+  }
+
+  // Chi tiết 1: Danh sách các thuốc đã kê (kèm PatientID, DoctorID, SL, hàm lượng)
+  @Get('overview/prescription-items')
+  async overviewPrescriptionItems(
+    @UserInfo() user: IUserFromToken,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('doctorId') doctorId?: string
+  ) {
+    this.ensureDoctor(user);
+    const effectiveDoctorId = user.roles === UserRole.ADMIN ? (doctorId || user.id) : user.id;
+    return this.doctorService.listPrescriptionItemsOverview(effectiveDoctorId, {
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined
+    });
+  }
+
+  // Chi tiết 2-3: Danh sách bệnh nhân đang điều trị kèm tỉ lệ tuân thủ
+  @Get('overview/active-patients')
+  async overviewActivePatients(
+    @UserInfo() user: IUserFromToken,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('doctorId') doctorId?: string
+  ) {
+    this.ensureDoctor(user);
+    const effectiveDoctorId = user.roles === UserRole.ADMIN ? (doctorId || user.id) : user.id;
+    return this.doctorService.listActivePatientsWithAdherence(effectiveDoctorId, {
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined
+    });
   }
 
   @Get('patients/:id/adherence')

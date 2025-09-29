@@ -407,32 +407,189 @@ export class DoctorService {
 
   // Adherence / Alerts
   async overview(doctorId: string) {
-    const [
-      patientsCount,
-      activePrescriptions,
-      unresolvedAlerts,
-      takenLogs,
-      totalItems
-    ] = await Promise.all([
-      this.databaseService.client.user.count({
-        where: { role: UserRole.PATIENT, deletedAt: null }
-      }),
-      this.databaseService.client.prescription.count({ where: { doctorId } }),
-      this.databaseService.client.alert.count({
-        where: { doctorId, resolved: false }
-      }),
-      this.databaseService.client.adherenceLog.count({
-        where: { status: AdherenceStatus.TAKEN }
-      }),
-      this.databaseService.client.prescriptionItem.count()
-    ]);
-    const adherenceRate = totalItems > 0 ? takenLogs / totalItems : 0;
+    // Tổng số đơn thuốc của bác sĩ
+    const totalPrescriptions = await this.databaseService.client.prescription.count({ where: { doctorId } });
+
+    // Bệnh nhân đang điều trị (distinct patientId trong các đơn ACTIVE của bác sĩ)
+    const activePrescriptionPatients = await this.databaseService.client.prescription.findMany({
+      where: { doctorId, status: PrescriptionStatus.ACTIVE },
+      select: { patientId: true }
+    });
+    const activePatientsCount = new Set(activePrescriptionPatients.map(p => p.patientId)).size;
+
+    // Tính adherence (taken / scheduled) trong phạm vi các đơn của bác sĩ
+    const doctorPrescriptions = await this.databaseService.client.prescription.findMany({
+      where: { doctorId },
+      select: { id: true }
+    });
+    const prescriptionIds = doctorPrescriptions.map(p => p.id);
+
+    let adherenceRate = 0;
+    if (prescriptionIds.length > 0) {
+      const [items, takenLogs] = await Promise.all([
+        this.databaseService.client.prescriptionItem.findMany({
+          where: { prescriptionId: { in: prescriptionIds } },
+          select: { frequencyPerDay: true, durationDays: true }
+        }),
+        this.databaseService.client.adherenceLog.count({
+          where: { prescriptionId: { in: prescriptionIds }, status: AdherenceStatus.TAKEN }
+        })
+      ]);
+      const scheduledDoses = items.reduce((sum, it) => sum + (it.frequencyPerDay || 0) * (it.durationDays || 0), 0);
+      adherenceRate = scheduledDoses > 0 ? takenLogs / scheduledDoses : 0;
+    }
+
     return {
-      patientsCount,
-      activePrescriptions,
-      unresolvedAlerts,
+      totalPrescriptions,
+      activePatientsCount,
       adherenceRate
     };
+  }
+
+  // Danh sách chi tiết các dòng đơn thuốc (thuốc đã kê) của bác sĩ
+  async listPrescriptionItemsOverview(
+    doctorId: string,
+    params?: { page?: number; limit?: number }
+  ) {
+    const page = params?.page && params.page > 0 ? params.page : 1;
+    const limit = params?.limit && params.limit > 0 ? params.limit : 20;
+
+    const [items, total] = await Promise.all([
+      this.databaseService.client.prescriptionItem.findMany({
+        where: { prescription: { doctorId } },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          medication: { select: { id: true, name: true, strength: true, unit: true, form: true } },
+          prescription: {
+            select: {
+              id: true,
+              patient: { select: { id: true, fullName: true, phoneNumber: true } },
+              doctor: { select: { id: true, fullName: true } }
+            }
+          }
+        }
+      }),
+      this.databaseService.client.prescriptionItem.count({ where: { prescription: { doctorId } } })
+    ]);
+
+    const rows = items.map((it) => ({
+      prescriptionId: (it as any).prescription.id as string,
+      patientId: (it as any).prescription.patient.id as string,
+      patientName: (it as any).prescription.patient.fullName as string,
+      doctorId: (it as any).prescription.doctor.id as string,
+      doctorName: (it as any).prescription.doctor.fullName as string,
+      medicationId: (it as any).medication?.id as string,
+      medicationName: (it as any).medication?.name as string,
+      strength: (it as any).medication?.strength as string | null,
+      unit: (it as any).medication?.unit as string | null,
+      form: (it as any).medication?.form as string | null,
+      dosage: it.dosage,
+      frequencyPerDay: it.frequencyPerDay,
+      durationDays: it.durationDays,
+      totalDoses: (it.frequencyPerDay || 0) * (it.durationDays || 0)
+    }));
+
+    return { items: rows, total, page, limit };
+  }
+
+  // Danh sách bệnh nhân đang điều trị kèm tỉ lệ tuân thủ (theo đơn của bác sĩ)
+  async listActivePatientsWithAdherence(
+    doctorId: string,
+    params?: { page?: number; limit?: number }
+  ) {
+    const page = params?.page && params.page > 0 ? params.page : 1;
+    const limit = params?.limit && params.limit > 0 ? params.limit : 20;
+
+    // Lấy tất cả đơn ACTIVE của bác sĩ và group theo bệnh nhân
+    const prescriptions = await this.databaseService.client.prescription.findMany({
+      where: { doctorId, status: PrescriptionStatus.ACTIVE },
+      select: { id: true, patientId: true }
+    });
+
+    const patientIds = Array.from(new Set(prescriptions.map(p => p.patientId)));
+    const total = patientIds.length;
+
+    const pagedPatientIds = patientIds.slice((page - 1) * limit, (page - 1) * limit + limit);
+
+    if (pagedPatientIds.length === 0) {
+      return { items: [], total, page, limit };
+    }
+
+    // Map patient -> list prescriptionIds
+    const mapPatientToPrescriptionIds: Record<string, string[]> = {};
+    for (const p of prescriptions) {
+      if (!mapPatientToPrescriptionIds[p.patientId]) {
+        mapPatientToPrescriptionIds[p.patientId] = [];
+      }
+      mapPatientToPrescriptionIds[p.patientId].push(p.id);
+    }
+
+    // Fetch patient info
+    const patients = await this.databaseService.client.user.findMany({
+      where: { id: { in: pagedPatientIds } },
+      select: { id: true, fullName: true, phoneNumber: true }
+    });
+
+    // For adherence calc: for each patient, get items for their prescriptions and taken logs
+    const results = [] as Array<{
+      patientId: string;
+      patientName: string;
+      phoneNumber: string | null;
+      doctorId: string;
+      doctorName: string | null;
+      adherence: { taken: number; scheduled: number; rate: number };
+    }>;
+
+    // Fetch doctor info once
+    const doctor = await this.databaseService.client.user.findUnique({ where: { id: doctorId }, select: { id: true, fullName: true } });
+
+    // Preload items for all paged patients' prescriptions
+    const pagedPrescriptionIds = pagedPatientIds.flatMap(pid => mapPatientToPrescriptionIds[pid] || []);
+
+    const [items, takenLogsCounts] = await Promise.all([
+      this.databaseService.client.prescriptionItem.findMany({
+        where: { prescriptionId: { in: pagedPrescriptionIds } },
+        select: { prescriptionId: true, frequencyPerDay: true, durationDays: true }
+      }),
+      // Count taken logs per patient across their prescriptions
+      this.databaseService.client.adherenceLog.groupBy({
+        by: ['patientId'],
+        where: { patientId: { in: pagedPatientIds }, prescriptionId: { in: pagedPrescriptionIds }, status: AdherenceStatus.TAKEN },
+        _count: { _all: true }
+      })
+    ]);
+
+    const mapPatientTaken: Record<string, number> = {};
+    for (const row of takenLogsCounts) {
+      mapPatientTaken[(row as any).patientId as string] = (row as any)._count._all as number;
+    }
+
+    // Compute scheduled per patient
+    const mapPatientScheduled: Record<string, number> = {};
+    for (const pid of pagedPatientIds) {
+      const ids = mapPatientToPrescriptionIds[pid] || [];
+      const scheduled = items
+        .filter(i => ids.includes(i.prescriptionId))
+        .reduce((sum, it) => sum + (it.frequencyPerDay || 0) * (it.durationDays || 0), 0);
+      mapPatientScheduled[pid] = scheduled;
+    }
+
+    for (const p of patients) {
+      const taken = mapPatientTaken[p.id] || 0;
+      const scheduled = mapPatientScheduled[p.id] || 0;
+      const rate = scheduled > 0 ? taken / scheduled : 0;
+      results.push({
+        patientId: p.id,
+        patientName: p.fullName,
+        phoneNumber: p.phoneNumber,
+        doctorId: doctor?.id || doctorId,
+        doctorName: doctor?.fullName || null,
+        adherence: { taken, scheduled, rate }
+      });
+    }
+
+    return { items: results, total, page, limit };
   }
   async getAdherenceStats(patientId: string) {
     const [totalItems, takenLogs] = await Promise.all([

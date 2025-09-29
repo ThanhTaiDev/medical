@@ -143,9 +143,21 @@ export const DoctorApi = {
   },
 
   // Overview & adherence
-  overview: async () => {
-    const res = await axiosInstance.get("/doctor/overview");
-    return res.data;
+  overview: async (params?: { doctorId?: string }) => {
+    const res = await axiosInstance.get("/doctor/overview", { params });
+    return res.data?.data ?? res.data;
+  },
+
+  overviewPrescriptionItems: async (params: { doctorId?: string; page?: number; limit?: number }) => {
+    const { doctorId, page, limit } = params || {};
+    const res = await axiosInstance.get("/doctor/overview/prescription-items", { params: { doctorId, page, limit } });
+    return res.data?.data ?? res.data;
+  },
+
+  overviewActivePatients: async (params: { doctorId?: string; page?: number; limit?: number }) => {
+    const { doctorId, page, limit } = params || {};
+    const res = await axiosInstance.get("/doctor/overview/active-patients", { params: { doctorId, page, limit } });
+    return res.data?.data ?? res.data;
   },
 
   adherence: async (patientId: string) => {
