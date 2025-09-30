@@ -37,7 +37,6 @@ import {
   Trash2,
   Users,
   FileText,
-  AlertTriangle,
   Search,
   Plus,
   Calendar,
@@ -454,19 +453,19 @@ const DoctorManagement: React.FC = () => {
     setOpenEditProfile({ open: true, id });
   };
 
-  const handleOpenEditHistory = (id: string) => {
-    setSelectedPatientId(id);
-    setHistoryForm({
-      conditions: [],
-      allergies: [],
-      surgeries: [],
-      familyHistory: "",
-      lifestyle: "",
-      currentMedications: [],
-      notes: "",
-    });
-    setOpenEditHistory({ open: true, id });
-  };
+  // const handleOpenEditHistory = (id: string) => {
+  //   setSelectedPatientId(id);
+  //   setHistoryForm({
+  //     conditions: [],
+  //     allergies: [],
+  //     surgeries: [],
+  //     familyHistory: "",
+  //     lifestyle: "",
+  //     currentMedications: [],
+  //     notes: "",
+  //   });
+  //   setOpenEditHistory({ open: true, id });
+  // };
 
   const handleOpenDelete = (p: any) => {
     setOpenDeletePatient({ open: true, patient: p });
@@ -2323,24 +2322,24 @@ const DoctorManagement: React.FC = () => {
   );
 };
 
-function ResolveAlertButton({ id }: { id: string }) {
-  const queryClient = useQueryClient();
-  const mutation = useMutation({
-    mutationFn: () => DoctorApi.resolveAlert(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["doctor-alerts"] });
-      
-    },
-  });
-  return (
-    <Button
-      size="sm"
-      onClick={() => mutation.mutate()}
-      isLoading={mutation.isPending}
-    >
-      Đánh dấu đã xử lý
-    </Button>
-  );
-}
+// function ResolveAlertButton({ id }: { id: string }) {
+//   const queryClient = useQueryClient();
+//   const mutation = useMutation({
+//     mutationFn: () => DoctorApi.resolveAlert(id),
+//     onSuccess: () => {
+//       queryClient.invalidateQueries({ queryKey: ["doctor-alerts"] });
+//       
+//     },
+//   });
+//   return (
+//     <Button
+//       size="sm"
+//       onClick={() => mutation.mutate()}
+//       isLoading={mutation.isPending}
+//     >
+//       Đánh dấu đã xử lý
+//     </Button>
+//   );
+// }
 
 export default DoctorManagement;

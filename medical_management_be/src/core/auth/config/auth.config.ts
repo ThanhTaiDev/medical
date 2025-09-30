@@ -10,11 +10,6 @@ const envSchema = z.object({
   COOKIE_SECRET: z.string(),
   JWT_VERIFY_TOKEN_SECRET_KEY: z.string(),
   JWT_VERIFY_TOKEN_EXPIRATION_TIME: z.string(),
-  SMS_USERS_KEY: z.string(),
-  SMS_PASS_SECRET: z.string(),
-  SMS_BRANDNAME: z.string(),
-  SMS_ISUNICODE: z.string(),
-  SMS_HOST: z.string()
 });
 
 export default registerAs('auth', () => {
@@ -28,10 +23,5 @@ export default registerAs('auth', () => {
     cookieSecret: env.COOKIE_SECRET,
     verifyTokenSecret: env.JWT_VERIFY_TOKEN_SECRET_KEY,
     verifyTokenExpiresIn: env.JWT_VERIFY_TOKEN_EXPIRATION_TIME,
-    smsUsersKey: env.SMS_USERS_KEY,
-    smsHost: env.SMS_HOST,
-    smsPassSecret: env.SMS_PASS_SECRET,
-    smsBrandName: env.SMS_BRANDNAME,
-    smsIsUnicode: env.SMS_ISUNICODE
   };
 });

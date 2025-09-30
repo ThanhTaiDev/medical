@@ -48,7 +48,7 @@ services:
     ports:
       - "9900:9900"
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=development
       - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/medical_management?schema=public
       - PORT=9900
       - JWT_ACCESS_TOKEN_SECRET_KEY=your-super-secret-jwt-key-change-in-production
@@ -59,7 +59,6 @@ services:
       - JWT_VERIFY_TOKEN_EXPIRATION_TIME=24h
       - COOKIE_SECRET=your-super-secret-cookie-key-change-in-production
       - FRONTEND_URL=http://localhost:9901
-    command: sh -c "npx prisma generate && npx prisma db push && node dist/main.js"
     restart: unless-stopped
     depends_on:
       postgres:

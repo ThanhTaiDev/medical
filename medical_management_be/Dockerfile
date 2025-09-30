@@ -28,6 +28,7 @@ WORKDIR /app
 
 # Cài đặt các dependencies cần thiết cho production
 RUN apk add --no-cache libc6-compat
+RUN npm install -g tsx
 
 # Copy các file cần thiết từ builder stage
 COPY --from=builder /app/node_modules ./node_modules
@@ -36,7 +37,7 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 
 # Expose port
-EXPOSE 9944
+EXPOSE 9900
 
-# Khởi chạy ứng dụng
-CMD ["node", "dist/main.js"] 
+# Khởi chạy ứng dụng với seed
+CMD ["sh", "-c", "npx prisma generate && npx prisma db push && npx tsx prisma/seed.ts && node dist/main.js"] 
