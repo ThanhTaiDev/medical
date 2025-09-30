@@ -5,9 +5,9 @@ networks:
     ipam:
       driver: default
       config:
-        - subnet: 172.20.0.0/16
-          ip_range: 172.20.0.0/24
-          gateway: 172.20.0.1
+        - subnet: 172.25.0.0/16
+          ip_range: 172.25.0.0/24
+          gateway: 172.25.0.1
 
 services:
   # PostgreSQL Database
@@ -39,9 +39,6 @@ services:
 
   # Backend API
   backend:
-    build:
-      context: ./medical_management_be
-      dockerfile: Dockerfile
     container_name: medical-backend
     image: auroraphtgrp/medical_management_backend:latest
     platform: linux/amd64
@@ -71,6 +68,9 @@ services:
     build:
       context: ./medical_management_fe
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-https://api.medical.minhtuandng.io.vn/api}
+        VITE_BACKEND_URL: ${VITE_BACKEND_URL:-https://api.medical.minhtuandng.io.vn/api}
     container_name: medical-frontend
     image: auroraphtgrp/medical_management_frontend:latest
     platform: linux/amd64
@@ -78,9 +78,6 @@ services:
       - medical-network
     ports:
       - "9901:9901"
-    environment:
-      - VITE_API_URL=http://localhost:9900
-      - VITE_BACKEND_URL=http://localhost:9900
     restart: unless-stopped
     depends_on:
       - backend
