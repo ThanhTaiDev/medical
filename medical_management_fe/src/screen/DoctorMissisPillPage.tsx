@@ -30,6 +30,18 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  RefreshCw,
+  Search,
+  Copy,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  TrendingUp,
+  Users,
+  Calendar,
+  User,
+} from "lucide-react";
 import toast from "react-hot-toast";
 
 const DoctorMissisPillPage: React.FC = () => {
@@ -78,268 +90,457 @@ const DoctorMissisPillPage: React.FC = () => {
     if (!phone) return;
     try {
       await navigator.clipboard.writeText(phone);
-    } catch {}
+      toast.success("Đã sao chép số điện thoại!", { duration: 1500 });
+    } catch {
+      toast.error("Không thể sao chép số điện thoại");
+    }
   };
 
+  // Tính toán thống kê tổng quan
+  const summaryStats = useMemo(() => {
+    const items = data?.items ?? [];
+    return {
+      total: items.length,
+      compliant: items.filter((x) => x.todayStatus === "COMPLIANT").length,
+      partial: items.filter((x) => x.todayStatus === "PARTIAL").length,
+      missed: items.filter((x) => x.todayStatus === "MISSED").length,
+      withAlerts: items.filter((x) => x.totalAlerts > 0).length,
+    };
+  }, [data?.items]);
+
   return (
-    <div className="p-4 md:p-6 max-w-6xl mx-auto w-full">
-      <Card>
-        <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <CardTitle className="text-xl md:text-2xl">
-            Tình trạng tuân thủ thuốc của bệnh nhân
-          </CardTitle>
-          <div className="flex items-center gap-2 w-full md:w-auto">
-            <Input
-              placeholder="Tìm theo tên/số điện thoại"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full md:w-64"
-            />
+    <div className="p-4 md:p-6 max-w-7xl mx-auto w-full space-y-6">
+      {/* Header với thống kê tổng quan */}
+      <div className="space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+              Tình trạng tuân thủ thuốc
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Theo dõi và quản lý tuân thủ thuốc của bệnh nhân
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input
+                placeholder="Tìm theo tên/số điện thoại..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10 w-full md:w-80 bg-white/50 backdrop-blur-sm border-green-200 focus:border-green-400"
+              />
+            </div>
             <Select
               value={String(sinceDays)}
               onValueChange={(v) => setSinceDays(parseInt(v))}
             >
-              <SelectTrigger className="w-28">
-                <SelectValue placeholder="Khoảng ngày" />
+              <SelectTrigger className="w-32 bg-white/50 backdrop-blur-sm border-green-200 focus:border-green-400">
+                <Calendar className="h-4 w-4 mr-2" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="3">3 ngày</SelectItem>
                 <SelectItem value="7">7 ngày</SelectItem>
                 <SelectItem value="14">14 ngày</SelectItem>
                 <SelectItem value="30">30 ngày</SelectItem>
+                <SelectItem value="90">90 ngày</SelectItem>
               </SelectContent>
             </Select>
             <Button
-              variant="secondary"
+              variant="outline"
               onClick={() => refetch()}
               disabled={isFetching}
+              className="bg-white/50 backdrop-blur-sm border-green-200 hover:bg-green-50"
             >
+              <RefreshCw
+                className={`h-4 w-4 mr-2 ${isFetching ? "animate-spin" : ""}`}
+              />
               Làm mới
             </Button>
           </div>
+        </div>
+
+        {/* Thống kê tổng quan */}
+        {!isLoading && data && (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Users className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-green-600 font-medium">
+                      Tổng bệnh nhân
+                    </p>
+                    <p className="text-2xl font-bold text-green-700">
+                      {summaryStats.total}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-emerald-100 rounded-lg">
+                    <CheckCircle className="h-5 w-5 text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-emerald-600 font-medium">
+                      Tuân thủ đầy đủ
+                    </p>
+                    <p className="text-2xl font-bold text-emerald-700">
+                      {summaryStats.compliant}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-amber-50 to-yellow-50 border-amber-200">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-amber-100 rounded-lg">
+                    <Clock className="h-5 w-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-amber-600 font-medium">
+                      Tuân thủ một phần
+                    </p>
+                    <p className="text-2xl font-bold text-amber-700">
+                      {summaryStats.partial}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-red-50 to-rose-50 border-red-200">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-red-100 rounded-lg">
+                    <AlertTriangle className="h-5 w-5 text-red-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-red-600 font-medium">Bỏ lỡ</p>
+                    <p className="text-2xl font-bold text-red-700">
+                      {summaryStats.missed}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <TrendingUp className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-blue-600 font-medium">
+                      Có cảnh báo
+                    </p>
+                    <p className="text-2xl font-bold text-blue-700">
+                      {summaryStats.withAlerts}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </div>
+
+      {/* Bảng dữ liệu chính */}
+      <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <User className="h-5 w-5 text-green-600" />
+            Chi tiết tuân thủ thuốc
+          </CardTitle>
         </CardHeader>
-        <Separator />
-        <CardContent>
+        <Separator className="bg-gradient-to-r from-green-200 to-emerald-200" />
+        <CardContent className="p-0">
           {isLoading ? (
-            <div className="space-y-3">
+            <div className="p-6 space-y-4">
               {Array.from({ length: 6 }).map((_, idx) => (
-                <div key={idx} className="grid grid-cols-12 gap-3 items-center">
-                  <div className="col-span-2 flex items-center gap-3">
-                    <Skeleton className="h-9 w-9 rounded-full" />
-                    <div className="space-y-2 w-2/3">
-                      <Skeleton className="h-3 w-2/3" />
-                      <Skeleton className="h-3 w-1/3" />
-                    </div>
+                <div
+                  key={idx}
+                  className="flex items-center gap-4 p-4 rounded-lg border bg-gradient-to-r from-slate-50 to-slate-100"
+                >
+                  <Skeleton className="h-12 w-12 rounded-full" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-48" />
+                    <Skeleton className="h-3 w-32" />
                   </div>
-                  <div className="col-span-2">
-                    <Skeleton className="h-3 w-20" />
-                  </div>
-                  <div className="col-span-1">
-                    <Skeleton className="h-6 w-16 mx-auto" />
-                  </div>
-                  <div className="col-span-1">
-                    <Skeleton className="h-6 w-16 mx-auto" />
-                  </div>
-                  <div className="col-span-1">
-                    <Skeleton className="h-6 w-8 mx-auto" />
-                  </div>
-                  <div className="col-span-1">
-                    <Skeleton className="h-6 w-8 mx-auto" />
-                  </div>
-                  <div className="col-span-2">
-                    <Skeleton className="h-6 w-20 mx-auto" />
-                  </div>
-                  <div className="col-span-2">
-                    <Skeleton className="h-8 w-32 ml-auto" />
+                  <div className="flex gap-2">
+                    <Skeleton className="h-8 w-20" />
+                    <Skeleton className="h-8 w-20" />
+                    <Skeleton className="h-8 w-24" />
                   </div>
                 </div>
               ))}
             </div>
           ) : isError ? (
-            <div className="text-sm text-red-600">
-              Không tải được dữ liệu. Vui lòng thử lại.
+            <div className="p-8 text-center">
+              <div className="flex flex-col items-center gap-4">
+                <div className="p-4 bg-red-100 rounded-full">
+                  <AlertTriangle className="h-8 w-8 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-red-700">
+                    Không thể tải dữ liệu
+                  </h3>
+                  <p className="text-sm text-red-600 mt-1">
+                    Vui lòng thử lại sau
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => refetch()}
+                  className="border-red-200 text-red-600 hover:bg-red-50"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Thử lại
+                </Button>
+              </div>
             </div>
           ) : (filteredItems?.length ?? 0) === 0 ? (
-            <div className="text-sm text-muted-foreground">
-              Không có dữ liệu tuân thủ thuốc trong khoảng thời gian này.
+            <div className="p-8 text-center">
+              <div className="flex flex-col items-center gap-4">
+                <div className="p-4 bg-slate-100 rounded-full">
+                  <Users className="h-8 w-8 text-slate-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-700">
+                    Không có dữ liệu
+                  </h3>
+                  <p className="text-sm text-slate-600 mt-1">
+                    Không có dữ liệu tuân thủ thuốc trong khoảng thời gian{" "}
+                    {sinceDays} ngày
+                  </p>
+                </div>
+              </div>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-md border">
+            <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-gradient-to-r from-slate-50 to-slate-100">
-                    <TableHead className="uppercase text-slate-600 text-xs tracking-wider">
-                      Tên bệnh nhân
+                  <TableRow className="bg-gradient-to-r from-green-50 to-emerald-50 border-b border-green-200">
+                    <TableHead className="uppercase text-green-700 text-xs font-semibold tracking-wider">
+                      Bệnh nhân
                     </TableHead>
-                    <TableHead className="uppercase text-slate-600 text-xs tracking-wider">
-                      Số điện thoại
+                    <TableHead className="uppercase text-green-700 text-xs font-semibold tracking-wider">
+                      Liên hệ
                     </TableHead>
-                    <TableHead className="text-center uppercase text-slate-600 text-xs tracking-wider">
-                      Trạng thái
+                    <TableHead className="text-center uppercase text-green-700 text-xs font-semibold tracking-wider">
+                      Tổng quan
                     </TableHead>
-                    <TableHead className="text-center uppercase text-slate-600 text-xs tracking-wider">
+                    <TableHead className="text-center uppercase text-green-700 text-xs font-semibold tracking-wider">
                       Hôm nay
                     </TableHead>
-                    <TableHead className="text-center uppercase text-slate-600 text-xs tracking-wider">
+                    <TableHead className="text-center uppercase text-green-700 text-xs font-semibold tracking-wider">
                       Đã uống
                     </TableHead>
-                    <TableHead className="text-center uppercase text-slate-600 text-xs tracking-wider">
+                    <TableHead className="text-center uppercase text-green-700 text-xs font-semibold tracking-wider">
                       Bỏ lỡ
                     </TableHead>
-                    <TableHead className="text-center uppercase text-slate-600 text-xs tracking-wider">
+                    <TableHead className="text-center uppercase text-green-700 text-xs font-semibold tracking-wider">
                       Cảnh báo
                     </TableHead>
-                    <TableHead className="text-right uppercase text-slate-600 text-xs tracking-wider">
+                    <TableHead className="text-right uppercase text-green-700 text-xs font-semibold tracking-wider">
                       Hành động
                     </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredItems.map((row) => (
-                    <TableRow key={row.patientId} className="hover:bg-muted/30">
-                      <TableCell>
+                    <TableRow
+                      key={row.patientId}
+                      className="hover:bg-green-50/50 transition-colors border-b border-green-100/50"
+                    >
+                      <TableCell className="py-4">
                         <div className="flex items-center gap-3">
-                          <Avatar className="h-9 w-9">
-                            <AvatarFallback>
+                          <Avatar className="h-10 w-10 border-2 border-green-200">
+                            <AvatarFallback className="bg-gradient-to-br from-green-100 to-emerald-100 text-green-700 font-semibold">
                               {getInitials(row.fullName)}
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <div className="font-medium leading-none">
+                            <div className="font-semibold text-slate-800 leading-tight">
                               {row.fullName}
+                            </div>
+                            <div className="text-xs text-slate-500 mt-1">
+                              ID: {row.patientId.slice(-8)}
                             </div>
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="py-4">
                         <div className="flex items-center gap-2">
-                          <span>{row.phoneNumber}</span>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => copyPhone(row.phoneNumber)}
-                          >
-                            Copy
-                          </Button>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge
-                          className={
-                            row.primaryStatus === "TAKEN"
-                              ? "bg-green-100 text-green-700 border-green-200"
-                              : row.primaryStatus === "MISSED"
-                              ? "bg-red-100 text-red-700 border-red-200"
-                              : "bg-amber-100 text-amber-700 border-amber-200"
-                          }
-                        >
-                          {row.primaryStatus === "TAKEN"
-                            ? "Đã uống"
-                            : row.primaryStatus === "MISSED"
-                            ? "Bỏ lỡ"
-                            : "Hỗn hợp"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge
-                          className={
-                            row.todayStatus === "COMPLIANT"
-                              ? "bg-green-100 text-green-700 border-green-200"
-                              : row.todayStatus === "PARTIAL"
-                              ? "bg-amber-100 text-amber-700 border-amber-200"
-                              : row.todayStatus === "MISSED"
-                              ? "bg-red-100 text-red-700 border-red-200"
-                              : "bg-gray-100 text-gray-700 border-gray-200"
-                          }
-                        >
-                          {row.todayStatus === "COMPLIANT"
-                            ? "Đã tuân thủ"
-                            : row.todayStatus === "PARTIAL"
-                            ? "Một phần"
-                            : row.todayStatus === "MISSED"
-                            ? "Bỏ lỡ"
-                            : "Chưa có dữ liệu"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge className="bg-green-100 text-green-700 border-green-200">
-                          {row.totalTaken}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge className="bg-red-100 text-red-700 border-red-200">
-                          {row.totalMissed}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex flex-col gap-1">
-                          {row.alerts.missedDose > 0 && (
-                            <Badge className="bg-red-100 text-red-700 border-red-200 text-xs">
-                              Bỏ lỡ: {row.alerts.missedDose}
-                            </Badge>
-                          )}
-                          {row.alerts.lowAdherence > 0 && (
-                            <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-xs">
-                              Tuân thủ thấp: {row.alerts.lowAdherence}
-                            </Badge>
-                          )}
-                          {row.alerts.other > 0 && (
-                            <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-xs">
-                              Khác: {row.alerts.other}
-                            </Badge>
-                          )}
-                          {row.totalAlerts === 0 && (
-                            <span className="text-xs text-muted-foreground">
-                              Không có
-                            </span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
+                          <span className="font-mono text-sm text-slate-700">
+                            {row.phoneNumber}
+                          </span>
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button
                                   size="sm"
-                                  className={
+                                  variant="outline"
+                                  onClick={() => copyPhone(row.phoneNumber)}
+                                  className="h-7 w-7 p-0 border-green-200 hover:bg-green-50"
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Sao chép số điện thoại</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center py-4">
+                        <div className="flex justify-center">
+                          <Badge
+                            className={`px-3 py-1 font-medium ${
+                              row.primaryStatus === "TAKEN"
+                                ? "bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 border-green-300 shadow-sm"
+                                : row.primaryStatus === "MISSED"
+                                ? "bg-gradient-to-r from-red-100 to-rose-100 text-red-700 border-red-300 shadow-sm"
+                                : "bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-700 border-amber-300 shadow-sm"
+                            }`}
+                          >
+                            {row.primaryStatus === "TAKEN"
+                              ? "Đã uống"
+                              : row.primaryStatus === "MISSED"
+                              ? "Bỏ lỡ"
+                              : "Hỗn hợp"}
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center py-4">
+                        <div className="flex justify-center">
+                          <Badge
+                            className={`px-3 py-1 font-medium ${
+                              row.todayStatus === "COMPLIANT"
+                                ? "bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 border-green-300 shadow-sm"
+                                : row.todayStatus === "PARTIAL"
+                                ? "bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-700 border-amber-300 shadow-sm"
+                                : row.todayStatus === "MISSED"
+                                ? "bg-gradient-to-r from-red-100 to-rose-100 text-red-700 border-red-300 shadow-sm"
+                                : "bg-gradient-to-r from-gray-100 to-slate-100 text-gray-700 border-gray-300 shadow-sm"
+                            }`}
+                          >
+                            {row.todayStatus === "COMPLIANT"
+                              ? "Tuân thủ"
+                              : row.todayStatus === "PARTIAL"
+                              ? "Một phần"
+                              : row.todayStatus === "MISSED"
+                              ? "Bỏ lỡ"
+                              : "Chưa có dữ liệu"}
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center py-4">
+                        <div className="flex justify-center">
+                          <Badge className="bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-700 border-emerald-300 shadow-sm px-3 py-1 font-semibold">
+                            {row.totalTaken}
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center py-4">
+                        <div className="flex justify-center">
+                          <Badge className="bg-gradient-to-r from-red-100 to-rose-100 text-red-700 border-red-300 shadow-sm px-3 py-1 font-semibold">
+                            {row.totalMissed}
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center py-4">
+                        <div className="flex flex-col gap-1 items-center">
+                          {row.alerts.missedDose > 0 && (
+                            <Badge className="bg-gradient-to-r from-red-100 to-rose-100 text-red-700 border-red-300 text-xs px-2 py-1 font-medium">
+                              Bỏ lỡ: {row.alerts.missedDose}
+                            </Badge>
+                          )}
+                          {row.alerts.lowAdherence > 0 && (
+                            <Badge className="bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-700 border-amber-300 text-xs px-2 py-1 font-medium">
+                              Tuân thủ thấp: {row.alerts.lowAdherence}
+                            </Badge>
+                          )}
+                          {row.alerts.other > 0 && (
+                            <Badge className="bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 border-blue-300 text-xs px-2 py-1 font-medium">
+                              Khác: {row.alerts.other}
+                            </Badge>
+                          )}
+                          {row.totalAlerts === 0 && (
+                            <span className="text-xs text-green-600 font-medium">
+                              Không có
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right py-4">
+                        <div className="flex items-center justify-end">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  className={`font-medium px-4 py-2 shadow-sm transition-all duration-200 ${
                                     row.todayStatus === "COMPLIANT"
-                                      ? "bg-green-600 hover:bg-green-700 text-white"
+                                      ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white cursor-default border-green-400"
                                       : row.todayStatus === "PARTIAL"
-                                      ? "bg-amber-600 hover:bg-amber-700 text-white"
+                                      ? "bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-700 hover:to-yellow-700 text-white"
                                       : row.todayWarningCount > 0
-                                      ? "bg-orange-600 hover:bg-orange-700 text-white"
-                                      : "bg-indigo-600 hover:bg-indigo-700 text-white"
-                                  }
-                                  onClick={() =>
-                                    warnMutation.mutate({
-                                      patientId: row.patientId,
-                                    })
-                                  }
+                                      ? "bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white"
+                                      : "bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white"
+                                  } ${
+                                    row.todayStatus === "COMPLIANT" ||
+                                    warnMutation.isPending ||
+                                    row.todayWarningCount >= 3
+                                      ? "opacity-75 cursor-not-allowed"
+                                      : "hover:shadow-md hover:scale-105"
+                                  }`}
+                                  onClick={() => {
+                                    // Chỉ cho phép click khi không phải COMPLIANT
+                                    if (row.todayStatus !== "COMPLIANT") {
+                                      warnMutation.mutate({
+                                        patientId: row.patientId,
+                                      });
+                                    }
+                                  }}
                                   disabled={
+                                    row.todayStatus === "COMPLIANT" ||
                                     warnMutation.isPending ||
                                     row.todayWarningCount >= 3
                                   }
                                 >
                                   {row.todayStatus === "COMPLIANT"
-                                    ? "Đã tuân thủ hôm nay"
+                                    ? "Đã tuân thủ"
                                     : row.todayStatus === "PARTIAL"
-                                    ? "Tuân thủ một phần"
+                                    ? "Một phần"
                                     : row.todayWarningCount > 0
-                                    ? `Đã nhắc nhở bệnh nhân lần (${row.todayWarningCount})`
-                                    : "Nhắc nhở tuân thủ"}
+                                    ? `Đã nhắc nhở (${row.todayWarningCount})`
+                                    : "Nhắc nhở"}
                                 </Button>
                               </TooltipTrigger>
-                              <TooltipContent>
-                                {row.todayStatus === "COMPLIANT"
-                                  ? "Bệnh nhân đã tuân thủ uống thuốc hôm nay"
-                                  : row.todayStatus === "PARTIAL"
-                                  ? "Bệnh nhân tuân thủ một phần hôm nay"
-                                  : row.todayWarningCount >= 3
-                                  ? "Đã nhắc nhở tối đa 3 lần trong ngày"
-                                  : row.todayWarningCount > 0
-                                  ? `Đã nhắc nhở ${row.todayWarningCount} lần hôm nay`
-                                  : "Gửi cảnh báo tuân thủ tới bệnh nhân"}
+                              <TooltipContent className="max-w-xs">
+                                <p className="text-center">
+                                  {row.todayStatus === "COMPLIANT"
+                                    ? "Bệnh nhân đã tuân thủ uống thuốc đầy đủ hôm nay - Không cần nhắc nhở"
+                                    : row.todayStatus === "PARTIAL"
+                                    ? "Bệnh nhân tuân thủ một phần hôm nay - Có thể nhắc nhở"
+                                    : row.todayWarningCount >= 3
+                                    ? "Đã nhắc nhở tối đa 3 lần trong ngày"
+                                    : row.todayWarningCount > 0
+                                    ? `Đã nhắc nhở ${row.todayWarningCount} lần hôm nay - Có thể nhắc nhở thêm`
+                                    : "Gửi cảnh báo tuân thủ tới bệnh nhân"}
+                                </p>
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
@@ -349,16 +550,31 @@ const DoctorMissisPillPage: React.FC = () => {
                   ))}
                 </TableBody>
                 <TableFooter>
-                  <TableRow>
-                    <TableCell colSpan={8}>
-                      <div className="flex flex-col md:flex-row md:items-center md:justify-between w-full gap-2 text-sm text-muted-foreground py-2">
-                        <div>
-                          Khoảng thời gian: {sinceDays} ngày • Tổng:{" "}
-                          {data?.total ?? 0}
+                  <TableRow className="bg-gradient-to-r from-green-50 to-emerald-50">
+                    <TableCell colSpan={8} className="py-4">
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between w-full gap-3 text-sm">
+                        <div className="flex items-center gap-4 text-green-700">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4" />
+                            <span className="font-medium">
+                              Khoảng thời gian: {sinceDays} ngày
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Users className="h-4 w-4" />
+                            <span className="font-medium">
+                              Tổng bệnh nhân: {data?.total ?? 0}
+                            </span>
+                          </div>
                         </div>
-                        <div className="opacity-70">
-                          Cập nhật:{" "}
-                          {new Date(data?.since ?? Date.now()).toLocaleString()}
+                        <div className="flex items-center gap-2 text-green-600">
+                          <Clock className="h-4 w-4" />
+                          <span className="font-medium">
+                            Cập nhật:{" "}
+                            {new Date(data?.since ?? Date.now()).toLocaleString(
+                              "vi-VN"
+                            )}
+                          </span>
                         </div>
                       </div>
                     </TableCell>

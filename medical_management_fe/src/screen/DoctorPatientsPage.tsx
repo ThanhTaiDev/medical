@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { patientApi } from '@/api/patient/patient.api'
 import { DoctorApi } from '@/api/doctor'
@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Eye, EyeOff, Plus, Trash2, Pill, Calendar, Clock } from 'lucide-react'
+import { Eye, EyeOff, Plus, Trash2, Pill, Calendar, Clock, Search, X as XIcon } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { X } from 'lucide-react'
 import { useForm } from 'react-hook-form'
@@ -104,6 +104,7 @@ export default function DoctorPatientsPage() {
   const [limit, setLimit] = useState(12)
   const [activeDialogTab, setActiveDialogTab] = useState('basic')
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [deletePatient, setDeletePatient] = useState<any | null>(null)
 
@@ -159,8 +160,8 @@ export default function DoctorPatientsPage() {
   })
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['doctor-patients', page, limit, search],
-    queryFn: () => patientApi.getPatientsForDoctor({ page, limit, search })
+    queryKey: ['doctor-patients', page, limit, debouncedSearch],
+    queryFn: () => patientApi.getPatientsForDoctor({ page, limit, search: debouncedSearch })
   })
 
   // Mutation for updating basic patient info
@@ -336,9 +337,25 @@ export default function DoctorPatientsPage() {
     }
   }, [updateBasicInfoMutation.isSuccess, historyPatient, basicInfoForm]);
 
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search)
+    }, 500) // 500ms delay
+
+    return () => clearTimeout(timer)
+  }, [search])
+
+  // Reset page when search changes
+  useEffect(() => {
+    if (debouncedSearch !== search) {
+      setPage(1)
+    }
+  }, [debouncedSearch, search])
+
   useEffect(() => {
     refetch()
-  }, [page, limit, search, refetch])
+  }, [page, limit, debouncedSearch, refetch])
 
   // Prescription helper functions
   const addPrescriptionItem = () => {
@@ -533,6 +550,13 @@ export default function DoctorPatientsPage() {
     setShowPassword(!showPassword)
   }
 
+  // Clear search function
+  const clearSearch = useCallback(() => {
+    setSearch('')
+    setDebouncedSearch('')
+    setPage(1)
+  }, [])
+
   const calculateAge = (patient: any) => {
     // Check profile first, then userInfo
     if (patient.profile?.birthYear) {
@@ -654,29 +678,75 @@ export default function DoctorPatientsPage() {
             <p className="text-muted-foreground">Thêm, sửa, xóa bệnh nhân (bác sĩ)</p>
           </div>
           <div className="flex items-center gap-2">
-            <input
-              className="px-3 py-2 rounded-lg border border-border/30 bg-background text-sm"
-              placeholder="Tìm kiếm..."
-              value={search}
-              onChange={(e) => { setPage(1); setSearch(e.target.value) }}
-            />
+            {/* Search Input with enhanced UI */}
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <input
+                className="pl-10 pr-10 py-2 w-80 rounded-lg border border-border/30 bg-background text-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
+                placeholder="Tìm kiếm theo tên hoặc số điện thoại..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              {search && (
+                <button
+                  onClick={clearSearch}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center hover:bg-muted/50 rounded-r-lg transition-colors duration-150"
+                  aria-label="Xóa tìm kiếm"
+                >
+                  <XIcon className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                </button>
+              )}
+            </div>
+            
             <select
-              className="px-2 py-2 rounded-lg border border-border/30 bg-background text-sm"
+              className="px-3 py-2 rounded-lg border border-border/30 bg-background text-sm transition-all duration-200 focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
               value={limit}
               onChange={(e) => { setPage(1); setLimit(parseInt(e.target.value)) }}
             >
               {[8, 12, 16, 24].map(n => <option key={n} value={n}>{n}/trang</option>)}
             </select>
-            <Button onClick={() => setIsCreateOpen(true)}>Thêm bệnh nhân</Button>
+            <Button 
+              onClick={() => setIsCreateOpen(true)}
+              className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all duration-200"
+            >
+              Thêm bệnh nhân
+            </Button>
           </div>
         </div>
 
         {isLoading ? (
-          <div className="flex items-center justify-center h-40 text-muted-foreground">Đang tải...</div>
+          <div className="flex items-center justify-center h-40 text-muted-foreground">
+            <div className="flex items-center gap-3">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+              <span>Đang tải danh sách bệnh nhân...</span>
+            </div>
+          </div>
         ) : isError ? (
-          <div className="flex items-center justify-center h-40 text-red-500">Không thể tải danh sách bệnh nhân</div>
+          <div className="flex items-center justify-center h-40 text-red-500">
+            <div className="text-center">
+              <p className="font-medium">Không thể tải danh sách bệnh nhân</p>
+              <p className="text-sm text-muted-foreground mt-1">Vui lòng thử lại sau</p>
+            </div>
+          </div>
         ) : (
           <>
+            {/* Search Results Info */}
+            {debouncedSearch && (
+              <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <div className="flex items-center gap-2 text-sm">
+                  <Search className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  <span className="text-blue-800 dark:text-blue-200">
+                    Kết quả tìm kiếm cho: <strong>"{debouncedSearch}"</strong>
+                  </span>
+                  <span className="text-blue-600 dark:text-blue-400">
+                    ({pagination?.total || 0} bệnh nhân)
+                  </span>
+                </div>
+              </div>
+            )}
+            
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
               {patients.map((p: any) => (
                 <div key={p.id} className="group relative">
@@ -759,18 +829,29 @@ export default function DoctorPatientsPage() {
 
             <div className="flex items-center justify-between mt-6">
               <div className="text-sm text-muted-foreground">
-                Trang {pagination?.currentPage} / {pagination?.totalPages} — Tổng {pagination?.total}
+                {debouncedSearch ? (
+                  <>
+                    Tìm thấy <strong>{pagination?.total || 0}</strong> bệnh nhân 
+                    {pagination?.totalPages && pagination.totalPages > 1 && (
+                      <> — Trang {pagination?.currentPage} / {pagination?.totalPages}</>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    Trang {pagination?.currentPage} / {pagination?.totalPages} — Tổng {pagination?.total} bệnh nhân
+                  </>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  className="px-3 py-1 rounded border border-border/30 hover:bg-accent/30 disabled:opacity-50"
+                  className="px-3 py-1 rounded border border-border/30 hover:bg-accent/30 disabled:opacity-50 transition-colors duration-150"
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                   disabled={!pagination?.hasPrevPage}
                 >
                   Trước
                 </button>
                 <button
-                  className="px-3 py-1 rounded border border-border/30 hover:bg-accent/30 disabled:opacity-50"
+                  className="px-3 py-1 rounded border border-border/30 hover:bg-accent/30 disabled:opacity-50 transition-colors duration-150"
                   onClick={() => setPage(p => p + 1)}
                   disabled={!pagination?.hasNextPage}
                 >

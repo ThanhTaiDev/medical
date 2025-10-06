@@ -7,33 +7,36 @@ import toast from "react-hot-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { 
-  Pill, 
-  Clock, 
-  AlertTriangle, 
-  CheckCircle, 
+import {
+  Pill,
+  Clock,
+  AlertTriangle,
+  CheckCircle,
   XCircle,
   User,
-  Activity
+  Activity,
 } from "lucide-react";
 import { TimeValidationDialog } from "@/components/dialogs/TimeValidationDialog";
-import { 
-  isWithinTimeSlot, 
-  formatTimeSlot, 
-  getCurrentTimeInVietnamese 
+import {
+  isWithinTimeSlot,
+  formatTimeSlot,
+  getCurrentTimeInVietnamese,
 } from "@/utils/timeValidation";
-import { 
-  translateRoute, 
-  translateStatus
-} from "@/utils/vietnameseEnums";
+import { translateRoute, translateStatus } from "@/utils/vietnameseEnums";
 import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 
 // Types for better type safety
 interface Prescription {
   id: string;
-  status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
+  status: "ACTIVE" | "COMPLETED" | "CANCELLED";
   startDate: string;
   endDate?: string;
   notes?: string;
@@ -57,7 +60,7 @@ interface PrescriptionItem {
 interface AdherenceLog {
   id: string;
   takenAt: string;
-  status: 'TAKEN' | 'MISSED' | 'SKIPPED';
+  status: "TAKEN" | "MISSED" | "SKIPPED";
   notes?: string;
   prescription?: {
     doctor?: {
@@ -77,12 +80,11 @@ interface AdherenceLog {
 
 interface Alert {
   id: string;
-  type: 'MISSED_DOSE' | 'LOW_ADHERENCE' | 'OTHER';
+  type: "MISSED_DOSE" | "LOW_ADHERENCE" | "OTHER";
   resolved: boolean;
   message?: string;
   prescriptionId?: string;
 }
-
 
 interface OverviewData {
   activePrescriptions: number;
@@ -91,7 +93,13 @@ interface OverviewData {
   unresolvedAlerts: number;
 }
 
-type PatientTab = "overview" | "prescriptions" | "history" | "reminders" | "alerts" | "adherence";
+type PatientTab =
+  | "overview"
+  | "prescriptions"
+  | "history"
+  | "reminders"
+  | "alerts"
+  | "adherence";
 
 export default function PatientPage() {
   const queryClient = useQueryClient();
@@ -105,10 +113,14 @@ export default function PatientPage() {
 
   // ============== PATIENT SELF-SERVICE TABS ==============
   const [activeTab, setActiveTab] = useState<PatientTab>("overview");
-  const [selectedPrescriptionId, setSelectedPrescriptionId] = useState<string | null>(null);
+  const [selectedPrescriptionId, setSelectedPrescriptionId] = useState<
+    string | null
+  >(null);
   const [confirmItemId, setConfirmItemId] = useState<string>("");
-  const [loadingActions, setLoadingActions] = useState<Record<string, boolean>>({});
-  
+  const [loadingActions, setLoadingActions] = useState<Record<string, boolean>>(
+    {}
+  );
+
   // Time validation dialog state
   const [timeValidationDialog, setTimeValidationDialog] = useState<{
     open: boolean;
@@ -119,11 +131,13 @@ export default function PatientPage() {
   });
 
   // Date picker state for reminders
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().slice(0, 10));
-  
+  const [selectedDate, setSelectedDate] = useState<string>(
+    new Date().toISOString().slice(0, 10)
+  );
+
   // Time filter state for reminders
-  const [selectedTimeFilter, setSelectedTimeFilter] = useState<string>('all'); // 'all', 'Sáng', 'Trưa', 'Chiều', 'Tối'
-  
+  const [selectedTimeFilter, setSelectedTimeFilter] = useState<string>("all"); // 'all', 'Sáng', 'Trưa', 'Chiều', 'Tối'
+
   // Check if selected date is today
   const isToday = selectedDate === new Date().toISOString().slice(0, 10);
 
@@ -131,64 +145,164 @@ export default function PatientPage() {
 
   // Debug dialog state changes
   useEffect(() => {
-    console.log('Dialog state changed:', timeValidationDialog);
+    console.log("Dialog state changed:", timeValidationDialog);
   }, [timeValidationDialog]);
 
-  const [firstWarningDialog, setFirstWarningDialog] = useState<{ open: boolean; doctorName?: string; message?: string }>(
-    { open: false }
-  );
+  const [firstWarningDialog, setFirstWarningDialog] = useState<{
+    open: boolean;
+    doctorName?: string;
+    message?: string;
+  }>({ open: false });
 
   const { data: ovAlerts, isLoading: loadingOvAlerts } = useQuery({
     queryKey: ["patient-ov-alerts"],
     queryFn: patientApi.getAlerts,
-    enabled: role === "PATIENT" && activeTab === "overview",
+    enabled: role === "PATIENT", // Always fetch alerts when patient role is detected
+    refetchOnWindowFocus: true, // Refetch when window gains focus
+    refetchOnMount: true, // Always refetch on mount
   });
 
   useEffect(() => {
-    if (role !== "PATIENT") return;
+    console.log("=== WARNING DIALOG DEBUG ===");
+    console.log("Role:", role);
+    console.log("ovAlerts:", ovAlerts);
+
+    if (role !== "PATIENT") {
+      console.log("Early return - role not PATIENT");
+      return;
+    }
+
     // Find first unresolved LOW_ADHERENCE alert
     const alertsArr = Array.isArray(ovAlerts) ? ovAlerts : [];
-    const warn = alertsArr.find((a: any) => a.type === 'LOW_ADHERENCE' && !a.resolved);
+    console.log("Alerts array for dialog:", alertsArr);
+
+    const warn = alertsArr.find(
+      (a: any) => a.type === "LOW_ADHERENCE" && !a.resolved
+    );
+    console.log("Found LOW_ADHERENCE alert:", warn);
+
     if (warn) {
-      // Try to extract doctor name from message pattern "Bác sĩ <name> ..."
-      const msg: string = warn.message || '';
-      const match = msg.match(/Bác sĩ\s+([^\s].*?)\s+nhắc/);
-      const doctorName = match?.[1];
-      setFirstWarningDialog({ open: true, doctorName, message: warn.message });
+      // Check if user has already seen this warning dialog today
+      const today = new Date().toISOString().slice(0, 10);
+      const dismissedKey = `warning_dialog_dismissed_${today}`;
+      const hasSeenToday = localStorage.getItem(dismissedKey);
+
+      console.log("Today:", today);
+      console.log("Dismissed key:", dismissedKey);
+      console.log("Has seen today:", hasSeenToday);
+
+      if (!hasSeenToday) {
+        // Try to extract doctor name from message pattern "Bác sĩ <name> ..."
+        const msg: string = warn.message || "";
+        const match = msg.match(/Bác sĩ\s+([^\s].*?)\s+nhắc/);
+        const doctorName = match?.[1];
+        console.log("Setting warning dialog with:", {
+          doctorName,
+          message: warn.message,
+        });
+        setFirstWarningDialog({
+          open: true,
+          doctorName,
+          message: warn.message,
+        });
+      } else {
+        console.log("Dialog already dismissed today");
+      }
+    } else {
+      console.log("No LOW_ADHERENCE alert found");
     }
+    console.log("=== END WARNING DIALOG DEBUG ===");
+  }, [role, ovAlerts]);
+
+  // Show toast notification for new alerts
+  useEffect(() => {
+    console.log("=== ALERT NOTIFICATION DEBUG ===");
+    console.log("Role:", role);
+    console.log("ovAlerts:", ovAlerts);
+    console.log("loadingOvAlerts:", loadingOvAlerts);
+
+    if (role !== "PATIENT" || !ovAlerts) {
+      console.log("Early return - role not PATIENT or no ovAlerts");
+      return;
+    }
+
+    const alertsArr = Array.isArray(ovAlerts) ? ovAlerts : [];
+    const newAlerts = alertsArr.filter((a: any) => !a.resolved);
+
+    console.log("Alerts array:", alertsArr);
+    console.log("New alerts (unresolved):", newAlerts);
+
+    if (newAlerts.length > 0) {
+      // Check if we've already shown notification for these alerts
+      const lastAlertIds = localStorage.getItem("last_shown_alert_ids");
+      const currentAlertIds = newAlerts.map((a: any) => a.id).join(",");
+
+      console.log("Last shown alert IDs:", lastAlertIds);
+      console.log("Current alert IDs:", currentAlertIds);
+
+      if (lastAlertIds !== currentAlertIds) {
+        console.log("Showing toast notification for new alerts");
+        // Show toast notification
+        toast.success(
+          `Bạn có ${newAlerts.length} thông báo mới từ bác sĩ! Vui lòng kiểm tra mục Cảnh báo.`,
+          {
+            duration: 5000,
+            position: "top-center",
+            style: {
+              background: "#10B981",
+              color: "#fff",
+              fontSize: "14px",
+              fontWeight: "500",
+            },
+          }
+        );
+
+        // Save current alert IDs
+        localStorage.setItem("last_shown_alert_ids", currentAlertIds);
+      } else {
+        console.log("Toast already shown for these alerts");
+      }
+    } else {
+      console.log("No new alerts to show");
+    }
+    console.log("=== END ALERT NOTIFICATION DEBUG ===");
   }, [role, ovAlerts]);
 
   // Utility functions
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString);
-    return isNaN(date.getTime()) ? 'N/A' : date.toLocaleDateString('vi-VN');
+    return isNaN(date.getTime()) ? "N/A" : date.toLocaleDateString("vi-VN");
   };
 
   const formatDateTime = (dateString: string): string => {
     const date = new Date(dateString);
-    return isNaN(date.getTime()) ? 'N/A' : 
-      `${date.toLocaleDateString('vi-VN')} ${date.toLocaleTimeString('vi-VN', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      })}`;
+    return isNaN(date.getTime())
+      ? "N/A"
+      : `${date.toLocaleDateString("vi-VN")} ${date.toLocaleTimeString(
+          "vi-VN",
+          {
+            hour: "2-digit",
+            minute: "2-digit",
+          }
+        )}`;
   };
 
   const getStatusColor = (status: string): string => {
     switch (status) {
-      case 'ACTIVE':
-        return 'bg-emerald-100 text-emerald-700';
-      case 'COMPLETED':
-        return 'bg-blue-100 text-blue-700';
-      case 'CANCELLED':
-        return 'bg-red-100 text-red-700';
-      case 'TAKEN':
-        return 'bg-emerald-100 text-emerald-700';
-      case 'MISSED':
-        return 'bg-amber-100 text-amber-700';
-      case 'SKIPPED':
-        return 'bg-zinc-100 text-zinc-700';
+      case "ACTIVE":
+        return "bg-emerald-100 text-emerald-700";
+      case "COMPLETED":
+        return "bg-blue-100 text-blue-700";
+      case "CANCELLED":
+        return "bg-red-100 text-red-700";
+      case "TAKEN":
+        return "bg-emerald-100 text-emerald-700";
+      case "MISSED":
+        return "bg-amber-100 text-amber-700";
+      case "SKIPPED":
+        return "bg-zinc-100 text-zinc-700";
       default:
-        return 'bg-zinc-100 text-zinc-600';
+        return "bg-zinc-100 text-zinc-600";
     }
   };
 
@@ -219,16 +333,18 @@ export default function PatientPage() {
   });
 
   // Filter upcoming reminders (PENDING status only) and sort by time
-  const upcomingReminders = ovReminders?.filter((reminder: any) => reminder.status === 'PENDING')
-    .sort((a: any, b: any) => {
-      const timeOrder = ['Sáng', 'Trưa', 'Chiều', 'Tối', 'Đêm'];
-      const aTimeIndex = timeOrder.indexOf(a.time);
-      const bTimeIndex = timeOrder.indexOf(b.time);
-      if (aTimeIndex !== -1 && bTimeIndex !== -1) {
-        return aTimeIndex - bTimeIndex;
-      }
-      return a.time.localeCompare(b.time);
-    }) || [];
+  const upcomingReminders =
+    ovReminders
+      ?.filter((reminder: any) => reminder.status === "PENDING")
+      .sort((a: any, b: any) => {
+        const timeOrder = ["Sáng", "Trưa", "Chiều", "Tối", "Đêm"];
+        const aTimeIndex = timeOrder.indexOf(a.time);
+        const bTimeIndex = timeOrder.indexOf(b.time);
+        if (aTimeIndex !== -1 && bTimeIndex !== -1) {
+          return aTimeIndex - bTimeIndex;
+        }
+        return a.time.localeCompare(b.time);
+      }) || [];
 
   const { data: ovAdherence, isLoading: loadingOvAdh } = useQuery({
     queryKey: ["patient-ov-adherence"],
@@ -241,7 +357,7 @@ export default function PatientPage() {
     queryFn: patientApi.getActivePrescriptions,
     enabled: role === "PATIENT" && activeTab === "overview",
   });
-  
+
   // Extract items from paginated response
   const prescriptionsList = ovPrescriptions?.items || [];
 
@@ -280,27 +396,28 @@ export default function PatientPage() {
   });
 
   // Filter reminders by time slot
-  const filteredReminders = reminders?.filter((reminder: any) => {
-    if (selectedTimeFilter === 'all') return true;
-    return reminder.time === selectedTimeFilter;
-  }) || [];
+  const filteredReminders =
+    reminders?.filter((reminder: any) => {
+      if (selectedTimeFilter === "all") return true;
+      return reminder.time === selectedTimeFilter;
+    }) || [];
 
   // Sort reminders: PENDING first, then by time
   const sortedReminders = filteredReminders.sort((a: any, b: any) => {
     // First priority: PENDING status goes to top
-    if (a.status === 'PENDING' && b.status !== 'PENDING') return -1;
-    if (a.status !== 'PENDING' && b.status === 'PENDING') return 1;
-    
+    if (a.status === "PENDING" && b.status !== "PENDING") return -1;
+    if (a.status !== "PENDING" && b.status === "PENDING") return 1;
+
     // Second priority: Sort by time slot order
-    const timeOrder = ['Sáng', 'Trưa', 'Chiều', 'Tối', 'Đêm'];
+    const timeOrder = ["Sáng", "Trưa", "Chiều", "Tối", "Đêm"];
     const aTimeIndex = timeOrder.indexOf(a.time);
     const bTimeIndex = timeOrder.indexOf(b.time);
-    
+
     // If both times are in the order array, sort by index
     if (aTimeIndex !== -1 && bTimeIndex !== -1) {
       return aTimeIndex - bTimeIndex;
     }
-    
+
     // If times are not in order array (like HH:mm format), sort alphabetically
     return a.time.localeCompare(b.time);
   });
@@ -319,14 +436,14 @@ export default function PatientPage() {
 
   const handleConfirmIntake = async () => {
     if (!selectedPrescriptionId || !confirmItemId) return;
-    
+
     try {
       await patientApi.confirmIntake(selectedPrescriptionId, {
         prescriptionItemId: confirmItemId,
         takenAt: new Date().toISOString(),
         status: "TAKEN",
       });
-      
+
       // Refresh detail and overview/adherence
       queryClient.invalidateQueries({
         queryKey: ["patient-prescription-detail", selectedPrescriptionId],
@@ -334,56 +451,61 @@ export default function PatientPage() {
       queryClient.invalidateQueries({ queryKey: ["patient-overview"] });
       queryClient.invalidateQueries({ queryKey: ["patient-adherence"] });
       setConfirmItemId("");
-      
+
       toast.success("Xác nhận uống thuốc thành công!", {
         duration: 3000,
         position: "top-center",
         style: { background: "#10B981", color: "#fff" },
       });
     } catch (error: any) {
-      console.error('Confirm intake error:', error);
-      toast.error(error?.response?.data?.message || "Có lỗi xảy ra khi xác nhận uống thuốc", {
-        duration: 4000,
-        position: "top-center",
-        style: { background: "#EF4444", color: "#fff" },
-      });
+      console.error("Confirm intake error:", error);
+      toast.error(
+        error?.response?.data?.message ||
+          "Có lỗi xảy ra khi xác nhận uống thuốc",
+        {
+          duration: 4000,
+          position: "top-center",
+          style: { background: "#EF4444", color: "#fff" },
+        }
+      );
     }
   };
 
   const handleConfirmIntakeFromReminder = async (reminder: any) => {
     if (!reminder.prescriptionId || !reminder.prescriptionItemId) return;
-    
-    console.log('=== CONFIRM INTAKE DEBUG ===');
-    console.log('Reminder:', reminder);
-    console.log('Reminder time:', reminder.time);
-    
+
+    console.log("=== CONFIRM INTAKE DEBUG ===");
+    console.log("Reminder:", reminder);
+    console.log("Reminder time:", reminder.time);
+
     // Check if current time is within the expected time slot
     const isWithinTime = isWithinTimeSlot(reminder.time);
-    console.log('Is within time slot:', isWithinTime);
-    
+    console.log("Is within time slot:", isWithinTime);
+
     if (!isWithinTime) {
-      console.log('Showing time validation dialog');
-      
+      console.log("Showing time validation dialog");
+
       // Test with simple alert first
-      const message = `Bạn đang xác nhận uống thuốc ${reminder.medicationName} ngoài khung giờ.\n\n` +
+      const message =
+        `Bạn đang xác nhận uống thuốc ${reminder.medicationName} ngoài khung giờ.\n\n` +
         `Khung giờ dự kiến: ${formatTimeSlot(reminder.time)}\n` +
         `Thời gian hiện tại: ${getCurrentTimeInVietnamese()}\n\n` +
         `Bạn có chắc chắn muốn xác nhận uống thuốc vào thời điểm này không?`;
-      
-      console.log('Alert message:', message);
-      console.log('About to show window.confirm');
-      
+
+      console.log("Alert message:", message);
+      console.log("About to show window.confirm");
+
       const confirmed = window.confirm(message);
-      console.log('User confirmed:', confirmed);
-      
+      console.log("User confirmed:", confirmed);
+
       if (confirmed) {
-        console.log('User confirmed, proceeding with action');
+        console.log("User confirmed, proceeding with action");
         await confirmIntakeAction(reminder);
       } else {
-        console.log('User cancelled');
+        console.log("User cancelled");
       }
       return;
-      
+
       // Original dialog code (commented out for now)
       // setTimeValidationDialog({
       //   open: true,
@@ -391,22 +513,22 @@ export default function PatientPage() {
       // });
       // return;
     }
-    
-    console.log('Proceeding with normal confirmation');
+
+    console.log("Proceeding with normal confirmation");
     // Proceed with normal confirmation if within time slot
     await confirmIntakeAction(reminder);
   };
 
   const confirmIntakeAction = async (reminder: any) => {
     const actionKey = `confirm-${reminder.id}`;
-    setLoadingActions(prev => ({ ...prev, [actionKey]: true }));
-    
-    console.log('=== CONFIRM INTAKE ACTION DEBUG ===');
-    console.log('Reminder:', reminder);
-    console.log('Unique dose ID:', reminder.uniqueDoseId);
-    console.log('Prescription ID:', reminder.prescriptionId);
-    console.log('Prescription Item ID:', reminder.prescriptionItemId);
-    
+    setLoadingActions((prev) => ({ ...prev, [actionKey]: true }));
+
+    console.log("=== CONFIRM INTAKE ACTION DEBUG ===");
+    console.log("Reminder:", reminder);
+    console.log("Unique dose ID:", reminder.uniqueDoseId);
+    console.log("Prescription ID:", reminder.prescriptionId);
+    console.log("Prescription Item ID:", reminder.prescriptionItemId);
+
     try {
       await patientApi.confirmIntake(reminder.prescriptionId, {
         prescriptionItemId: reminder.prescriptionItemId,
@@ -414,163 +536,182 @@ export default function PatientPage() {
         status: "TAKEN",
         notes: reminder.uniqueDoseId, // Send unique dose ID to track specific time slot
       });
-      
+
       // Refresh reminders and related data with more aggressive invalidation
-      console.log('=== REFRESHING CACHE AFTER CONFIRM INTAKE ===');
+      console.log("=== REFRESHING CACHE AFTER CONFIRM INTAKE ===");
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["patient-reminders"] }), // This will invalidate all patient-reminders queries
         queryClient.invalidateQueries({ queryKey: ["patient-overview"] }),
         queryClient.invalidateQueries({ queryKey: ["patient-adherence"] }),
         queryClient.invalidateQueries({ queryKey: ["patient-ov-reminders"] }),
         queryClient.invalidateQueries({ queryKey: ["patient-ov-adherence"] }),
-        queryClient.invalidateQueries({ queryKey: ["patient-ov-prescriptions"] })
+        queryClient.invalidateQueries({
+          queryKey: ["patient-ov-prescriptions"],
+        }),
       ]);
-      
+
       // Force refetch reminders for the selected date
-      console.log('=== FORCE REFETCH REMINDERS ===');
-      await queryClient.refetchQueries({ queryKey: ["patient-reminders", selectedDate] });
-      
+      console.log("=== FORCE REFETCH REMINDERS ===");
+      await queryClient.refetchQueries({
+        queryKey: ["patient-reminders", selectedDate],
+      });
+
       // Also refetch all reminders queries
       await queryClient.refetchQueries({ queryKey: ["patient-reminders"] });
-      
+
       toast.success("Xác nhận uống thuốc thành công!", {
         duration: 3000,
         position: "top-center",
         style: { background: "#10B981", color: "#fff" },
       });
     } catch (error: any) {
-      console.error('Confirm intake from reminder error:', error);
-      toast.error(error?.response?.data?.message || "Có lỗi xảy ra khi xác nhận uống thuốc", {
-        duration: 4000,
-        position: "top-center",
-        style: { background: "#EF4444", color: "#fff" },
-      });
+      console.error("Confirm intake from reminder error:", error);
+      toast.error(
+        error?.response?.data?.message ||
+          "Có lỗi xảy ra khi xác nhận uống thuốc",
+        {
+          duration: 4000,
+          position: "top-center",
+          style: { background: "#EF4444", color: "#fff" },
+        }
+      );
     } finally {
-      setLoadingActions(prev => ({ ...prev, [actionKey]: false }));
+      setLoadingActions((prev) => ({ ...prev, [actionKey]: false }));
     }
   };
 
   const handleMarkMissedFromReminder = async (reminder: any) => {
     if (!reminder.prescriptionId) return;
-    
-    console.log('=== MARK MISSED DEBUG ===');
-    console.log('Reminder:', reminder);
-    console.log('Reminder time:', reminder.time);
-    
+
+    console.log("=== MARK MISSED DEBUG ===");
+    console.log("Reminder:", reminder);
+    console.log("Reminder time:", reminder.time);
+
     // Check if current time is within the expected time slot
     const isWithinTime = isWithinTimeSlot(reminder.time);
-    console.log('Is within time slot:', isWithinTime);
-    
+    console.log("Is within time slot:", isWithinTime);
+
     // Always show confirmation for marking missed (regardless of time slot)
-    console.log('Showing missed validation dialog');
-    
+    console.log("Showing missed validation dialog");
+
     // Test with simple alert first - warning for marking missed
-    const message = `Bạn đang đánh dấu bỏ lỡ thuốc ${reminder.medicationName}.\n\n` +
+    const message =
+      `Bạn đang đánh dấu bỏ lỡ thuốc ${reminder.medicationName}.\n\n` +
       `Khung giờ dự kiến: ${formatTimeSlot(reminder.time)}\n` +
       `Thời gian hiện tại: ${getCurrentTimeInVietnamese()}\n\n` +
       `Bạn có chắc chắn muốn đánh dấu bỏ lỡ thuốc này không?`;
-    
-    console.log('Missed alert message:', message);
-    console.log('About to show window.confirm for missed');
-    
+
+    console.log("Missed alert message:", message);
+    console.log("About to show window.confirm for missed");
+
     const confirmed = window.confirm(message);
-    console.log('User confirmed missed:', confirmed);
-    
+    console.log("User confirmed missed:", confirmed);
+
     if (!confirmed) {
-      console.log('User cancelled missed action');
+      console.log("User cancelled missed action");
       return; // User cancelled
     }
-    
+
     // Proceed with marking missed
     await markMissedAction(reminder);
   };
 
   const markMissedAction = async (reminder: any) => {
     const actionKey = `missed-${reminder.id}`;
-    setLoadingActions(prev => ({ ...prev, [actionKey]: true }));
-    
-    console.log('=== MARK MISSED ACTION DEBUG ===');
-    console.log('Reminder:', reminder);
-    console.log('Unique dose ID:', reminder.uniqueDoseId);
-    console.log('Prescription ID:', reminder.prescriptionId);
-    console.log('Prescription Item ID:', reminder.prescriptionItemId);
-    
+    setLoadingActions((prev) => ({ ...prev, [actionKey]: true }));
+
+    console.log("=== MARK MISSED ACTION DEBUG ===");
+    console.log("Reminder:", reminder);
+    console.log("Unique dose ID:", reminder.uniqueDoseId);
+    console.log("Prescription ID:", reminder.prescriptionId);
+    console.log("Prescription Item ID:", reminder.prescriptionItemId);
+
     try {
       await patientApi.markMissed(reminder.prescriptionId, {
         prescriptionItemId: reminder.prescriptionItemId,
         notes: reminder.uniqueDoseId, // Send unique dose ID to track specific time slot
       });
-      
+
       // Refresh reminders and related data with more aggressive invalidation
-      console.log('=== REFRESHING CACHE AFTER MARK MISSED ===');
+      console.log("=== REFRESHING CACHE AFTER MARK MISSED ===");
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["patient-reminders"] }), // This will invalidate all patient-reminders queries
         queryClient.invalidateQueries({ queryKey: ["patient-overview"] }),
         queryClient.invalidateQueries({ queryKey: ["patient-adherence"] }),
         queryClient.invalidateQueries({ queryKey: ["patient-ov-reminders"] }),
         queryClient.invalidateQueries({ queryKey: ["patient-ov-adherence"] }),
-        queryClient.invalidateQueries({ queryKey: ["patient-ov-prescriptions"] })
+        queryClient.invalidateQueries({
+          queryKey: ["patient-ov-prescriptions"],
+        }),
       ]);
-      
+
       // Force refetch reminders for the selected date
-      console.log('=== FORCE REFETCH REMINDERS AFTER MISSED ===');
-      await queryClient.refetchQueries({ queryKey: ["patient-reminders", selectedDate] });
-      
+      console.log("=== FORCE REFETCH REMINDERS AFTER MISSED ===");
+      await queryClient.refetchQueries({
+        queryKey: ["patient-reminders", selectedDate],
+      });
+
       // Also refetch all reminders queries
       await queryClient.refetchQueries({ queryKey: ["patient-reminders"] });
-      
+
       toast.success("Đã đánh dấu bỏ lỡ thuốc!", {
         duration: 3000,
         position: "top-center",
         style: { background: "#F59E0B", color: "#fff" },
       });
     } catch (error: any) {
-      console.error('Mark missed from reminder error:', error);
-      toast.error(error?.response?.data?.message || "Có lỗi xảy ra khi đánh dấu bỏ lỡ", {
-        duration: 4000,
-        position: "top-center",
-        style: { background: "#EF4444", color: "#fff" },
-      });
+      console.error("Mark missed from reminder error:", error);
+      toast.error(
+        error?.response?.data?.message || "Có lỗi xảy ra khi đánh dấu bỏ lỡ",
+        {
+          duration: 4000,
+          position: "top-center",
+          style: { background: "#EF4444", color: "#fff" },
+        }
+      );
     } finally {
-      setLoadingActions(prev => ({ ...prev, [actionKey]: false }));
+      setLoadingActions((prev) => ({ ...prev, [actionKey]: false }));
     }
   };
 
   const handleResolveAlert = async (alertId: string) => {
     const actionKey = `resolve-${alertId}`;
-    setLoadingActions(prev => ({ ...prev, [actionKey]: true }));
-    
-    console.log('=== RESOLVE ALERT DEBUG ===');
-    console.log('Alert ID:', alertId);
-    
+    setLoadingActions((prev) => ({ ...prev, [actionKey]: true }));
+
+    console.log("=== RESOLVE ALERT DEBUG ===");
+    console.log("Alert ID:", alertId);
+
     try {
       await patientApi.resolveAlert(alertId);
-      
+
       // Refresh alerts and related data
-      console.log('=== REFRESHING CACHE AFTER RESOLVE ALERT ===');
+      console.log("=== REFRESHING CACHE AFTER RESOLVE ALERT ===");
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["patient-alerts"] }),
         queryClient.invalidateQueries({ queryKey: ["patient-ov-alerts"] }),
-        queryClient.invalidateQueries({ queryKey: ["patient-overview"] })
+        queryClient.invalidateQueries({ queryKey: ["patient-overview"] }),
       ]);
-      
+
       // Force refetch alerts
       await queryClient.refetchQueries({ queryKey: ["patient-alerts"] });
-      
+
       toast.success("Đã đánh dấu cảnh báo là đã xử lý!", {
         duration: 3000,
         position: "top-center",
         style: { background: "#10B981", color: "#fff" },
       });
     } catch (error: any) {
-      console.error('Resolve alert error:', error);
-      toast.error(error?.response?.data?.message || "Có lỗi xảy ra khi đánh dấu cảnh báo", {
-        duration: 4000,
-        position: "top-center",
-        style: { background: "#EF4444", color: "#fff" },
-      });
+      console.error("Resolve alert error:", error);
+      toast.error(
+        error?.response?.data?.message || "Có lỗi xảy ra khi đánh dấu cảnh báo",
+        {
+          duration: 4000,
+          position: "top-center",
+          style: { background: "#EF4444", color: "#fff" },
+        }
+      );
     } finally {
-      setLoadingActions(prev => ({ ...prev, [actionKey]: false }));
+      setLoadingActions((prev) => ({ ...prev, [actionKey]: false }));
     }
   };
 
@@ -587,16 +728,60 @@ export default function PatientPage() {
               {/* Header */}
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold tracking-tight">Tổng quan</h2>
+                  <h2 className="text-2xl font-bold tracking-tight">
+                    Tổng quan
+                  </h2>
                   <p className="text-muted-foreground">
                     Thông tin tổng quan về tình trạng điều trị của bạn
                   </p>
+                </div>
+                {/* Debug buttons - remove in production */}
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      localStorage.removeItem("last_shown_alert_ids");
+                      localStorage.removeItem(
+                        "warning_dialog_dismissed_" +
+                          new Date().toISOString().slice(0, 10)
+                      );
+                      toast.success(
+                        "Đã reset thông báo! Refresh trang để test lại."
+                      );
+                    }}
+                    className="text-xs"
+                  >
+                    Reset Notifications
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      console.log("=== MANUAL DEBUG INFO ===");
+                      console.log("Role:", role);
+                      console.log("ovAlerts:", ovAlerts);
+                      console.log("loadingOvAlerts:", loadingOvAlerts);
+                      console.log("firstWarningDialog:", firstWarningDialog);
+                      console.log(
+                        "localStorage keys:",
+                        Object.keys(localStorage)
+                      );
+                      console.log("=== END MANUAL DEBUG ===");
+                    }}
+                    className="text-xs"
+                  >
+                    Debug Info
+                  </Button>
                 </div>
               </div>
 
               {/* Stats Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="border-border/20 hover:shadow-md transition-all duration-200 cursor-pointer group" onClick={() => setActiveTab("prescriptions")}>
+                <Card
+                  className="border-border/20 hover:shadow-md transition-all duration-200 cursor-pointer group"
+                  onClick={() => setActiveTab("prescriptions")}
+                >
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div>
@@ -612,13 +797,18 @@ export default function PatientPage() {
                       </div>
                     </div>
                     <div className="mt-4 flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">Xem chi tiết</span>
+                      <span className="text-xs text-muted-foreground">
+                        Xem chi tiết
+                      </span>
                       <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="border-border/20 hover:shadow-md transition-all duration-200 cursor-pointer group" onClick={() => setActiveTab("alerts")}>
+                <Card
+                  className="border-border/20 hover:shadow-md transition-all duration-200 cursor-pointer group"
+                  onClick={() => setActiveTab("alerts")}
+                >
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div>
@@ -634,13 +824,18 @@ export default function PatientPage() {
                       </div>
                     </div>
                     <div className="mt-4 flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">Xem chi tiết</span>
+                      <span className="text-xs text-muted-foreground">
+                        Xem chi tiết
+                      </span>
                       <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-amber-700 transition-colors" />
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="border-border/20 hover:shadow-md transition-all duration-200 cursor-pointer group" onClick={() => setActiveTab("adherence")}>
+                <Card
+                  className="border-border/20 hover:shadow-md transition-all duration-200 cursor-pointer group"
+                  onClick={() => setActiveTab("adherence")}
+                >
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div>
@@ -656,13 +851,18 @@ export default function PatientPage() {
                       </div>
                     </div>
                     <div className="mt-4 flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">Xem chi tiết</span>
+                      <span className="text-xs text-muted-foreground">
+                        Xem chi tiết
+                      </span>
                       <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-emerald-600 transition-colors" />
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="border-border/20 hover:shadow-md transition-all duration-200 cursor-pointer group" onClick={() => setActiveTab("adherence")}>
+                <Card
+                  className="border-border/20 hover:shadow-md transition-all duration-200 cursor-pointer group"
+                  onClick={() => setActiveTab("adherence")}
+                >
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div>
@@ -678,17 +878,21 @@ export default function PatientPage() {
                       </div>
                     </div>
                     <div className="mt-4 flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">Xem chi tiết</span>
+                      <span className="text-xs text-muted-foreground">
+                        Xem chi tiết
+                      </span>
                       <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-red-600 transition-colors" />
                     </div>
                   </CardContent>
                 </Card>
-
               </div>
 
               {/* Active prescriptions preview */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card className="border-border/20 hover:shadow-md transition-all duration-200 cursor-pointer group" onClick={() => setActiveTab("prescriptions")}>
+                <Card
+                  className="border-border/20 hover:shadow-md transition-all duration-200 cursor-pointer group"
+                  onClick={() => setActiveTab("prescriptions")}
+                >
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center justify-between text-base">
                       <span className="flex items-center gap-2">
@@ -709,14 +913,23 @@ export default function PatientPage() {
                     {loadingOvRx ? (
                       <div className="flex items-center justify-center py-8">
                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                        <span className="ml-2 text-sm text-muted-foreground">Đang tải...</span>
+                        <span className="ml-2 text-sm text-muted-foreground">
+                          Đang tải...
+                        </span>
                       </div>
                     ) : prescriptionsList.length > 0 ? (
                       <div className="max-h-96 overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400">
                         {prescriptionsList.map((pr: Prescription) => (
-                          <div key={pr.id} className="rounded-lg border border-border/20 p-3 hover:bg-muted/50 transition-colors">
+                          <div
+                            key={pr.id}
+                            className="rounded-lg border border-border/20 p-3 hover:bg-muted/50 transition-colors"
+                          >
                             <div className="flex items-center justify-between mb-2">
-                              <Badge className={`text-xs ${getStatusColor(pr.status)}`}>
+                              <Badge
+                                className={`text-xs ${getStatusColor(
+                                  pr.status
+                                )}`}
+                              >
                                 {getStatusText(pr.status)}
                               </Badge>
                               <span className="text-xs text-muted-foreground">
@@ -748,14 +961,19 @@ export default function PatientPage() {
                     ) : (
                       <div className="text-center py-8">
                         <Pill className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
-                        <p className="text-sm text-muted-foreground">Không có đơn thuốc</p>
+                        <p className="text-sm text-muted-foreground">
+                          Không có đơn thuốc
+                        </p>
                       </div>
                     )}
                   </CardContent>
                 </Card>
 
                 {/* Upcoming reminders */}
-                <Card className="border-border/20 hover:shadow-md transition-all duration-200 cursor-pointer group" onClick={() => setActiveTab("reminders")}>
+                <Card
+                  className="border-border/20 hover:shadow-md transition-all duration-200 cursor-pointer group"
+                  onClick={() => setActiveTab("reminders")}
+                >
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center justify-between text-base">
                       <span className="flex items-center gap-2">
@@ -763,11 +981,12 @@ export default function PatientPage() {
                         Nhắc nhở hôm nay
                       </span>
                       <div className="flex items-center gap-2">
-                        {!loadingOvReminders && upcomingReminders.length > 0 && (
-                          <Badge variant="secondary" className="text-xs">
-                            {upcomingReminders.length}
-                          </Badge>
-                        )}
+                        {!loadingOvReminders &&
+                          upcomingReminders.length > 0 && (
+                            <Badge variant="secondary" className="text-xs">
+                              {upcomingReminders.length}
+                            </Badge>
+                          )}
                         <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-blue-600 transition-colors" />
                       </div>
                     </CardTitle>
@@ -776,12 +995,17 @@ export default function PatientPage() {
                     {loadingOvReminders ? (
                       <div className="flex items-center justify-center py-8">
                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                        <span className="ml-2 text-sm text-muted-foreground">Đang tải...</span>
+                        <span className="ml-2 text-sm text-muted-foreground">
+                          Đang tải...
+                        </span>
                       </div>
                     ) : upcomingReminders.length > 0 ? (
                       <div className="max-h-96 overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400">
                         {upcomingReminders.map((r: any, idx: number) => (
-                          <div key={idx} className="rounded-lg border border-border/20 p-4 hover:shadow-md transition-all duration-200">
+                          <div
+                            key={idx}
+                            className="rounded-lg border border-border/20 p-4 hover:shadow-md transition-all duration-200"
+                          >
                             <div className="flex items-start gap-3">
                               {/* Time Badge */}
                               <div className="shrink-0">
@@ -800,17 +1024,30 @@ export default function PatientPage() {
                                       {r.medicationName || "Thuốc"}
                                     </h4>
                                     <div className="flex items-center gap-1 mt-1">
-                                      <Badge variant="secondary" className="text-xs">
+                                      <Badge
+                                        variant="secondary"
+                                        className="text-xs"
+                                      >
                                         {r.dosage}
                                       </Badge>
-                                      <Badge variant="outline" className="text-xs">
-                                        {translateRoute(r.route) || "Đường uống"}
+                                      <Badge
+                                        variant="outline"
+                                        className="text-xs"
+                                      >
+                                        {translateRoute(r.route) ||
+                                          "Đường uống"}
                                       </Badge>
                                     </div>
                                   </div>
                                   <div className="shrink-0">
-                                    <Badge 
-                                      variant={r.status === 'TAKEN' ? 'default' : r.status === 'MISSED' ? 'destructive' : 'outline'}
+                                    <Badge
+                                      variant={
+                                        r.status === "TAKEN"
+                                          ? "default"
+                                          : r.status === "MISSED"
+                                          ? "destructive"
+                                          : "outline"
+                                      }
                                       className="text-xs"
                                     >
                                       {translateStatus(r.status)}
@@ -828,7 +1065,7 @@ export default function PatientPage() {
                             </div>
                           </div>
                         ))}
-                        
+
                         {/* Scroll indicator */}
                         {upcomingReminders.length > 4 && (
                           <div className="text-center py-2">
@@ -841,8 +1078,12 @@ export default function PatientPage() {
                     ) : (
                       <div className="text-center py-8">
                         <Clock className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
-                        <p className="text-sm text-muted-foreground">Không có nhắc nhở hôm nay</p>
-                        <p className="text-xs text-muted-foreground mt-1">Tất cả thuốc đã được uống</p>
+                        <p className="text-sm text-muted-foreground">
+                          Không có nhắc nhở hôm nay
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Tất cả thuốc đã được uống
+                        </p>
                       </div>
                     )}
                   </CardContent>
@@ -851,17 +1092,49 @@ export default function PatientPage() {
 
               {/* Alerts and recent adherence */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card className="border-border/20 hover:shadow-md transition-all duration-200 cursor-pointer group" onClick={() => setActiveTab("alerts")}>
+                <Card
+                  className={`border-border/20 hover:shadow-md transition-all duration-200 cursor-pointer group ${
+                    Array.isArray(ovAlerts) &&
+                    ovAlerts.filter((a: Alert) => !a.resolved).length > 0
+                      ? "ring-2 ring-amber-200 bg-amber-50/30"
+                      : ""
+                  }`}
+                  onClick={() => setActiveTab("alerts")}
+                >
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center justify-between text-base">
                       <span className="flex items-center gap-2">
-                        <AlertTriangle className="h-4 w-4 text-amber-600" />
+                        <AlertTriangle
+                          className={`h-4 w-4 ${
+                            Array.isArray(ovAlerts) &&
+                            ovAlerts.filter((a: Alert) => !a.resolved).length >
+                              0
+                              ? "text-amber-600 animate-pulse"
+                              : "text-amber-600"
+                          }`}
+                        />
                         Cảnh báo
+                        {Array.isArray(ovAlerts) &&
+                          ovAlerts.filter((a: Alert) => !a.resolved).length >
+                            0 && (
+                            <span className="text-xs text-amber-600 font-medium">
+                              (Có thông báo mới!)
+                            </span>
+                          )}
                       </span>
                       <div className="flex items-center gap-2">
                         {!loadingOvAlerts && Array.isArray(ovAlerts) && (
-                          <Badge variant="secondary" className="text-xs">
-                            {ovAlerts.filter((a: Alert) => !a.resolved).length} chưa xử lý
+                          <Badge
+                            variant={
+                              ovAlerts.filter((a: Alert) => !a.resolved)
+                                .length > 0
+                                ? "destructive"
+                                : "secondary"
+                            }
+                            className="text-xs"
+                          >
+                            {ovAlerts.filter((a: Alert) => !a.resolved).length}{" "}
+                            chưa xử lý
                           </Badge>
                         )}
                         <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-amber-600 transition-colors" />
@@ -872,22 +1145,38 @@ export default function PatientPage() {
                     {loadingOvAlerts ? (
                       <div className="flex items-center justify-center py-8">
                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                        <span className="ml-2 text-sm text-muted-foreground">Đang tải...</span>
+                        <span className="ml-2 text-sm text-muted-foreground">
+                          Đang tải...
+                        </span>
                       </div>
                     ) : Array.isArray(ovAlerts) && ovAlerts.length > 0 ? (
                       <div className="space-y-3">
                         {ovAlerts.slice(0, 4).map((a: Alert, idx: number) => (
-                          <div key={idx} className="rounded-lg border border-border/20 p-3 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                          <div
+                            key={idx}
+                            className={`rounded-lg border p-3 flex items-center justify-between hover:bg-muted/50 transition-colors ${
+                              !a.resolved
+                                ? "border-amber-200 bg-amber-50/50"
+                                : "border-border/20"
+                            }`}
+                          >
                             <div className="flex items-center gap-3">
-                              <div className={`h-8 w-8 rounded-lg flex items-center justify-center text-xs font-semibold ${
-                                a.resolved ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-                              }`}>
+                              <div
+                                className={`h-8 w-8 rounded-lg flex items-center justify-center text-xs font-semibold ${
+                                  a.resolved
+                                    ? "bg-emerald-100 text-emerald-700"
+                                    : "bg-amber-100 text-amber-700"
+                                } ${!a.resolved ? "animate-pulse" : ""}`}
+                              >
                                 !
                               </div>
                               <div>
                                 <p className="text-sm font-medium text-foreground">
-                                  {a.type === "MISSED_DOSE" ? "Bỏ liều" : 
-                                   a.type === "LOW_ADHERENCE" ? "Tuân thủ thấp" : "Cảnh báo"}
+                                  {a.type === "MISSED_DOSE"
+                                    ? "Bỏ liều"
+                                    : a.type === "LOW_ADHERENCE"
+                                    ? "Nhắc nhở từ bác sĩ"
+                                    : "Cảnh báo"}
                                 </p>
                                 {a.message && (
                                   <p className="text-xs text-muted-foreground line-clamp-1">
@@ -896,9 +1185,13 @@ export default function PatientPage() {
                                 )}
                               </div>
                             </div>
-                            <Badge className={`text-xs ${
-                              a.resolved ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-                            }`}>
+                            <Badge
+                              className={`text-xs ${
+                                a.resolved
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : "bg-amber-100 text-amber-700"
+                              }`}
+                            >
                               {a.resolved ? "Đã xử lý" : "Chưa xử lý"}
                             </Badge>
                           </div>
@@ -908,17 +1201,30 @@ export default function PatientPage() {
                             +{ovAlerts.length - 4} cảnh báo khác
                           </p>
                         )}
+                        {ovAlerts.filter((a: Alert) => !a.resolved).length >
+                          0 && (
+                          <div className="mt-3 p-2 bg-amber-100 rounded-lg border border-amber-200">
+                            <p className="text-xs text-amber-800 text-center font-medium">
+                              💡 Nhấn vào đây để xem chi tiết và xử lý cảnh báo
+                            </p>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="text-center py-8">
                         <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
-                        <p className="text-sm text-muted-foreground">Không có cảnh báo</p>
+                        <p className="text-sm text-muted-foreground">
+                          Không có cảnh báo
+                        </p>
                       </div>
                     )}
                   </CardContent>
                 </Card>
 
-                <Card className="border-border/20 hover:shadow-md transition-all duration-200 cursor-pointer group" onClick={() => setActiveTab("adherence")}>
+                <Card
+                  className="border-border/20 hover:shadow-md transition-all duration-200 cursor-pointer group"
+                  onClick={() => setActiveTab("adherence")}
+                >
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center justify-between text-base">
                       <span className="flex items-center gap-2">
@@ -932,21 +1238,32 @@ export default function PatientPage() {
                     {loadingOvAdh ? (
                       <div className="flex items-center justify-center py-8">
                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                        <span className="ml-2 text-sm text-muted-foreground">Đang tải...</span>
+                        <span className="ml-2 text-sm text-muted-foreground">
+                          Đang tải...
+                        </span>
                       </div>
                     ) : Array.isArray(ovAdherence) && ovAdherence.length > 0 ? (
                       <div className="max-h-96 overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400">
                         {ovAdherence.map((log: AdherenceLog) => (
-                          <div key={log.id} className="rounded-lg border border-border/20 p-4 hover:shadow-md transition-all duration-200">
+                          <div
+                            key={log.id}
+                            className="rounded-lg border border-border/20 p-4 hover:shadow-md transition-all duration-200"
+                          >
                             <div className="flex items-start gap-3">
                               {/* Time Badge */}
                               <div className="shrink-0">
                                 <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 text-white flex flex-col items-center justify-center">
                                   <div className="text-xs font-bold">
-                                    {new Date(log.takenAt).toLocaleDateString('vi-VN', { day: '2-digit' })}
+                                    {new Date(log.takenAt).toLocaleDateString(
+                                      "vi-VN",
+                                      { day: "2-digit" }
+                                    )}
                                   </div>
                                   <div className="text-[10px] opacity-90">
-                                    {new Date(log.takenAt).toLocaleDateString('vi-VN', { month: 'short' })}
+                                    {new Date(log.takenAt).toLocaleDateString(
+                                      "vi-VN",
+                                      { month: "short" }
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -956,25 +1273,37 @@ export default function PatientPage() {
                                 <div className="flex items-center justify-between gap-2 mb-2">
                                   <div className="flex items-center gap-2">
                                     <Badge
-                                      variant={log.status === 'TAKEN' ? 'default' : log.status === 'MISSED' ? 'destructive' : 'secondary'}
+                                      variant={
+                                        log.status === "TAKEN"
+                                          ? "default"
+                                          : log.status === "MISSED"
+                                          ? "destructive"
+                                          : "secondary"
+                                      }
                                       className="text-xs"
                                     >
                                       {getStatusText(log.status)}
                                     </Badge>
                                     <span className="text-xs text-muted-foreground">
-                                      {new Date(log.takenAt).toLocaleTimeString('vi-VN', {
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                      })}
+                                      {new Date(log.takenAt).toLocaleTimeString(
+                                        "vi-VN",
+                                        {
+                                          hour: "2-digit",
+                                          minute: "2-digit",
+                                        }
+                                      )}
                                     </span>
                                   </div>
                                   <div className="text-xs text-muted-foreground">
-                                    {new Date(log.takenAt).toLocaleDateString('vi-VN', {
-                                      weekday: 'short',
-                                      year: 'numeric',
-                                      month: 'short',
-                                      day: 'numeric'
-                                    })}
+                                    {new Date(log.takenAt).toLocaleDateString(
+                                      "vi-VN",
+                                      {
+                                        weekday: "short",
+                                        year: "numeric",
+                                        month: "short",
+                                        day: "numeric",
+                                      }
+                                    )}
                                   </div>
                                 </div>
 
@@ -983,32 +1312,47 @@ export default function PatientPage() {
                                   <div className="bg-muted/30 rounded-md p-2 mt-2">
                                     <div className="flex items-center gap-2 mb-1">
                                       <span className="text-xs font-medium text-foreground">
-                                        {log.prescriptionItem.medication?.name || "Thuốc"}
+                                        {log.prescriptionItem.medication
+                                          ?.name || "Thuốc"}
                                       </span>
-                                      <Badge variant="outline" className="text-[10px]">
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[10px]"
+                                      >
                                         {log.prescriptionItem.dosage}
                                       </Badge>
                                       {log.prescriptionItem.route && (
-                                        <Badge variant="secondary" className="text-[10px]">
-                                          {translateRoute(log.prescriptionItem.route)}
+                                        <Badge
+                                          variant="secondary"
+                                          className="text-[10px]"
+                                        >
+                                          {translateRoute(
+                                            log.prescriptionItem.route
+                                          )}
                                         </Badge>
                                       )}
                                     </div>
-                                    {log.prescriptionItem.medication?.strength && (
+                                    {log.prescriptionItem.medication
+                                      ?.strength && (
                                       <p className="text-[10px] text-muted-foreground">
-                                        {log.prescriptionItem.medication.strength} • {log.prescriptionItem.medication.form}
+                                        {
+                                          log.prescriptionItem.medication
+                                            .strength
+                                        }{" "}
+                                        • {log.prescriptionItem.medication.form}
                                       </p>
                                     )}
                                     {log.prescription?.doctor?.fullName && (
                                       <p className="text-[10px] text-muted-foreground mt-1">
-                                        Bác sĩ: {log.prescription.doctor.fullName}
+                                        Bác sĩ:{" "}
+                                        {log.prescription.doctor.fullName}
                                       </p>
                                     )}
                                   </div>
                                 )}
 
                                 {/* Notes - only show if it's not a uniqueDoseId */}
-                                {log.notes && !log.notes.includes('-') && (
+                                {log.notes && !log.notes.includes("-") && (
                                   <div className="bg-muted/30 rounded-md p-2 mt-2">
                                     <p className="text-xs text-muted-foreground">
                                       {log.notes}
@@ -1032,7 +1376,9 @@ export default function PatientPage() {
                     ) : (
                       <div className="text-center py-8">
                         <Activity className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
-                        <p className="text-sm text-muted-foreground">Không có dữ liệu</p>
+                        <p className="text-sm text-muted-foreground">
+                          Không có dữ liệu
+                        </p>
                       </div>
                     )}
                   </CardContent>
@@ -1047,7 +1393,9 @@ export default function PatientPage() {
               {/* Header */}
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold tracking-tight">Đơn thuốc</h2>
+                  <h2 className="text-2xl font-bold tracking-tight">
+                    Đơn thuốc
+                  </h2>
                   <p className="text-muted-foreground">
                     Xem và quản lý đơn thuốc của bạn
                   </p>
@@ -1060,19 +1408,33 @@ export default function PatientPage() {
                   {loadingPres ? (
                     <div className="flex items-center justify-center py-12">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                      <span className="ml-3 text-muted-foreground">Đang tải đơn thuốc...</span>
+                      <span className="ml-3 text-muted-foreground">
+                        Đang tải đơn thuốc...
+                      </span>
                     </div>
-                  ) : !prescriptions || (Array.isArray(prescriptions) && prescriptions.length === 0) || (prescriptions?.items && Array.isArray(prescriptions.items) && prescriptions.items.length === 0) ? (
+                  ) : !prescriptions ||
+                    (Array.isArray(prescriptions) &&
+                      prescriptions.length === 0) ||
+                    (prescriptions?.items &&
+                      Array.isArray(prescriptions.items) &&
+                      prescriptions.items.length === 0) ? (
                     <div className="text-center py-12">
                       <Pill className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-                      <h3 className="text-lg font-semibold text-foreground mb-2">Không có đơn thuốc</h3>
-                      <p className="text-muted-foreground">Bạn chưa có đơn thuốc nào đang hoạt động</p>
+                      <h3 className="text-lg font-semibold text-foreground mb-2">
+                        Không có đơn thuốc
+                      </h3>
+                      <p className="text-muted-foreground">
+                        Bạn chưa có đơn thuốc nào đang hoạt động
+                      </p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                      {(Array.isArray(prescriptions) ? prescriptions : prescriptions?.items || []).map((pr: Prescription) => (
-                        <Card 
-                          key={pr.id} 
+                      {(Array.isArray(prescriptions)
+                        ? prescriptions
+                        : prescriptions?.items || []
+                      ).map((pr: Prescription) => (
+                        <Card
+                          key={pr.id}
                           className="border-border/20 hover:shadow-md transition-all duration-200 cursor-pointer group"
                           onClick={() => setSelectedPrescriptionId(pr.id)}
                         >
@@ -1088,7 +1450,11 @@ export default function PatientPage() {
                                       Đơn thuốc #{pr.id.slice(-8)}
                                     </h3>
                                     <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                                      <Badge className={`text-xs ${getStatusColor(pr.status)}`}>
+                                      <Badge
+                                        className={`text-xs ${getStatusColor(
+                                          pr.status
+                                        )}`}
+                                      >
                                         {getStatusText(pr.status)}
                                       </Badge>
                                       <span className="h-3 w-px bg-border/50" />
@@ -1133,14 +1499,18 @@ export default function PatientPage() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-xs font-semibold">
-                            {(prescriptionDetail as Prescription)?.doctor?.fullName?.charAt(0) || "BS"}
+                            {(
+                              prescriptionDetail as Prescription
+                            )?.doctor?.fullName?.charAt(0) || "BS"}
                           </div>
                           <div className="min-w-0">
                             <CardTitle className="text-lg font-semibold text-foreground truncate">
                               Chi tiết đơn thuốc
                             </CardTitle>
                             <p className="text-xs text-muted-foreground truncate">
-                              Bác sĩ: {(prescriptionDetail as Prescription)?.doctor?.fullName || "-"}
+                              Bác sĩ:{" "}
+                              {(prescriptionDetail as Prescription)?.doctor
+                                ?.fullName || "-"}
                             </p>
                           </div>
                         </div>
@@ -1158,7 +1528,9 @@ export default function PatientPage() {
                       {loadingPresDetail ? (
                         <div className="flex items-center justify-center py-12">
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                          <span className="ml-3 text-muted-foreground">Đang tải chi tiết...</span>
+                          <span className="ml-3 text-muted-foreground">
+                            Đang tải chi tiết...
+                          </span>
                         </div>
                       ) : (
                         <div className="space-y-6">
@@ -1166,28 +1538,49 @@ export default function PatientPage() {
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <Card className="border-border/20">
                               <CardContent className="p-4">
-                                <div className="text-xs text-muted-foreground mb-1">Trạng thái</div>
-                                <Badge className={`text-xs ${getStatusColor((prescriptionDetail as Prescription)?.status || '')}`}>
-                                  {getStatusText((prescriptionDetail as Prescription)?.status || '')}
+                                <div className="text-xs text-muted-foreground mb-1">
+                                  Trạng thái
+                                </div>
+                                <Badge
+                                  className={`text-xs ${getStatusColor(
+                                    (prescriptionDetail as Prescription)
+                                      ?.status || ""
+                                  )}`}
+                                >
+                                  {getStatusText(
+                                    (prescriptionDetail as Prescription)
+                                      ?.status || ""
+                                  )}
                                 </Badge>
                               </CardContent>
                             </Card>
                             <Card className="border-border/20 md:col-span-2">
                               <CardContent className="p-4">
-                                <div className="text-xs text-muted-foreground mb-1">Bắt đầu</div>
+                                <div className="text-xs text-muted-foreground mb-1">
+                                  Bắt đầu
+                                </div>
                                 <div className="text-sm text-foreground">
-                                  {(prescriptionDetail as Prescription)?.startDate
-                                    ? formatDateTime((prescriptionDetail as Prescription).startDate!)
+                                  {(prescriptionDetail as Prescription)
+                                    ?.startDate
+                                    ? formatDateTime(
+                                        (prescriptionDetail as Prescription)
+                                          .startDate!
+                                      )
                                     : "-"}
                                 </div>
                               </CardContent>
                             </Card>
                             <Card className="border-border/20">
                               <CardContent className="p-4">
-                                <div className="text-xs text-muted-foreground mb-1">Kết thúc</div>
+                                <div className="text-xs text-muted-foreground mb-1">
+                                  Kết thúc
+                                </div>
                                 <div className="text-sm text-foreground">
                                   {(prescriptionDetail as Prescription)?.endDate
-                                    ? formatDateTime((prescriptionDetail as Prescription).endDate!)
+                                    ? formatDateTime(
+                                        (prescriptionDetail as Prescription)
+                                          .endDate!
+                                      )
                                     : "-"}
                                 </div>
                               </CardContent>
@@ -1198,7 +1591,9 @@ export default function PatientPage() {
                           {(prescriptionDetail as Prescription)?.notes && (
                             <Card className="border-border/20">
                               <CardContent className="p-4">
-                                <div className="text-xs text-muted-foreground mb-2">Ghi chú</div>
+                                <div className="text-xs text-muted-foreground mb-2">
+                                  Ghi chú
+                                </div>
                                 <div className="text-sm text-foreground">
                                   {(prescriptionDetail as Prescription).notes}
                                 </div>
@@ -1208,50 +1603,76 @@ export default function PatientPage() {
 
                           {/* Items */}
                           <div className="space-y-4">
-                            <h3 className="text-lg font-semibold text-foreground">Danh sách thuốc</h3>
+                            <h3 className="text-lg font-semibold text-foreground">
+                              Danh sách thuốc
+                            </h3>
                             <div className="space-y-4">
-                              {Array.isArray((prescriptionDetail as Prescription)?.items) ? (
-                                (prescriptionDetail as Prescription).items.map((item: PrescriptionItem) => (
-                                  <Card key={item.id} className="border-border/20">
-                                    <CardContent className="p-4">
-                                      <div className="flex items-start justify-between gap-4">
-                                        <div className="min-w-0 flex-1">
-                                          <h4 className="text-sm font-semibold text-foreground mb-3">
-                                            {item.medicationName || "Thuốc"}
-                                          </h4>
-                                          <div className="flex flex-wrap gap-2 mb-3">
-                                            <Badge variant="outline" className="text-xs">
-                                              {item.dosage}
-                                            </Badge>
-                                            <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700">
-                                              {item.frequencyPerDay} lần/ngày
-                                            </Badge>
-                                            <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700">
-                                              {item.durationDays} ngày
-                                            </Badge>
-                                            {item.route && (
-                                              <Badge variant="outline" className="text-xs bg-zinc-50 text-zinc-700">
-                                                {item.route}
+                              {Array.isArray(
+                                (prescriptionDetail as Prescription)?.items
+                              ) ? (
+                                (prescriptionDetail as Prescription).items.map(
+                                  (item: PrescriptionItem) => (
+                                    <Card
+                                      key={item.id}
+                                      className="border-border/20"
+                                    >
+                                      <CardContent className="p-4">
+                                        <div className="flex items-start justify-between gap-4">
+                                          <div className="min-w-0 flex-1">
+                                            <h4 className="text-sm font-semibold text-foreground mb-3">
+                                              {item.medicationName || "Thuốc"}
+                                            </h4>
+                                            <div className="flex flex-wrap gap-2 mb-3">
+                                              <Badge
+                                                variant="outline"
+                                                className="text-xs"
+                                              >
+                                                {item.dosage}
                                               </Badge>
+                                              <Badge
+                                                variant="outline"
+                                                className="text-xs bg-emerald-50 text-emerald-700"
+                                              >
+                                                {item.frequencyPerDay} lần/ngày
+                                              </Badge>
+                                              <Badge
+                                                variant="outline"
+                                                className="text-xs bg-blue-50 text-blue-700"
+                                              >
+                                                {item.durationDays} ngày
+                                              </Badge>
+                                              {item.route && (
+                                                <Badge
+                                                  variant="outline"
+                                                  className="text-xs bg-zinc-50 text-zinc-700"
+                                                >
+                                                  {item.route}
+                                                </Badge>
+                                              )}
+                                            </div>
+                                            <div className="text-xs text-muted-foreground mb-2">
+                                              Giờ uống:{" "}
+                                              {Array.isArray(item.timesOfDay)
+                                                ? item.timesOfDay.join(", ")
+                                                : "-"}
+                                            </div>
+                                            {item.instructions && (
+                                              <div className="text-xs text-muted-foreground">
+                                                Hướng dẫn: {item.instructions}
+                                              </div>
                                             )}
                                           </div>
-                                          <div className="text-xs text-muted-foreground mb-2">
-                                            Giờ uống: {Array.isArray(item.timesOfDay) ? item.timesOfDay.join(", ") : "-"}
-                                          </div>
-                                          {item.instructions && (
-                                            <div className="text-xs text-muted-foreground">
-                                              Hướng dẫn: {item.instructions}
-                                            </div>
-                                          )}
                                         </div>
-                                      </div>
-                                    </CardContent>
-                                  </Card>
-                                ))
+                                      </CardContent>
+                                    </Card>
+                                  )
+                                )
                               ) : (
                                 <div className="text-center py-8">
                                   <Pill className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
-                                  <p className="text-sm text-muted-foreground">Không có danh sách thuốc</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    Không có danh sách thuốc
+                                  </p>
                                 </div>
                               )}
                             </div>
@@ -1260,20 +1681,29 @@ export default function PatientPage() {
                           {/* Confirm Intake */}
                           <Card className="border-border/20">
                             <CardHeader className="pb-3">
-                              <CardTitle className="text-base">Xác nhận đã uống thuốc</CardTitle>
+                              <CardTitle className="text-base">
+                                Xác nhận đã uống thuốc
+                              </CardTitle>
                             </CardHeader>
                             <CardContent>
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                 <select
                                   className="col-span-2 px-3 py-2 rounded-lg border border-border/30 bg-background text-sm"
                                   value={confirmItemId}
-                                  onChange={(e) => setConfirmItemId(e.target.value)}
+                                  onChange={(e) =>
+                                    setConfirmItemId(e.target.value)
+                                  }
                                 >
                                   <option value="">Chọn thuốc trong đơn</option>
-                                  {Array.isArray((prescriptionDetail as Prescription)?.items) &&
-                                    (prescriptionDetail as Prescription).items.map((item: PrescriptionItem) => (
+                                  {Array.isArray(
+                                    (prescriptionDetail as Prescription)?.items
+                                  ) &&
+                                    (
+                                      prescriptionDetail as Prescription
+                                    ).items.map((item: PrescriptionItem) => (
                                       <option key={item.id} value={item.id}>
-                                        {item.medicationName || "Thuốc"} — {item.dosage}
+                                        {item.medicationName || "Thuốc"} —{" "}
+                                        {item.dosage}
                                       </option>
                                     ))}
                                 </select>
@@ -1393,14 +1823,16 @@ export default function PatientPage() {
               {/* Header */}
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-semibold text-foreground">Nhắc nhở uống thuốc</h2>
+                  <h2 className="text-xl font-semibold text-foreground">
+                    Nhắc nhở uống thuốc
+                  </h2>
                   <p className="text-sm text-muted-foreground mt-1">
                     Lịch trình uống thuốc theo ngày • Chưa uống hiển thị trước
                   </p>
                 </div>
                 <Badge variant="outline" className="text-xs">
                   {sortedReminders.length} nhắc nhở
-                  {selectedTimeFilter !== 'all' && (
+                  {selectedTimeFilter !== "all" && (
                     <span className="ml-1 text-muted-foreground">
                       ({Array.isArray(reminders) ? reminders.length : 0} tổng)
                     </span>
@@ -1412,7 +1844,10 @@ export default function PatientPage() {
               <div className="flex items-center gap-3 p-4 bg-muted/30 rounded-lg">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
                 <div className="flex items-center gap-2">
-                  <label htmlFor="reminder-date" className="text-sm font-medium">
+                  <label
+                    htmlFor="reminder-date"
+                    className="text-sm font-medium"
+                  >
                     Chọn ngày:
                   </label>
                   <input
@@ -1440,7 +1875,9 @@ export default function PatientPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => setSelectedDate(new Date().toISOString().slice(0, 10))}
+                    onClick={() =>
+                      setSelectedDate(new Date().toISOString().slice(0, 10))
+                    }
                     className="text-xs flex items-center gap-1"
                   >
                     <Calendar className="h-3 w-3" />
@@ -1476,40 +1913,50 @@ export default function PatientPage() {
                   <div className="flex gap-2">
                     <Button
                       size="sm"
-                      variant={selectedTimeFilter === 'all' ? 'default' : 'outline'}
-                      onClick={() => setSelectedTimeFilter('all')}
+                      variant={
+                        selectedTimeFilter === "all" ? "default" : "outline"
+                      }
+                      onClick={() => setSelectedTimeFilter("all")}
                       className="text-xs"
                     >
                       Tất cả
                     </Button>
                     <Button
                       size="sm"
-                      variant={selectedTimeFilter === 'Sáng' ? 'default' : 'outline'}
-                      onClick={() => setSelectedTimeFilter('Sáng')}
+                      variant={
+                        selectedTimeFilter === "Sáng" ? "default" : "outline"
+                      }
+                      onClick={() => setSelectedTimeFilter("Sáng")}
                       className="text-xs"
                     >
                       Sáng
                     </Button>
                     <Button
                       size="sm"
-                      variant={selectedTimeFilter === 'Trưa' ? 'default' : 'outline'}
-                      onClick={() => setSelectedTimeFilter('Trưa')}
+                      variant={
+                        selectedTimeFilter === "Trưa" ? "default" : "outline"
+                      }
+                      onClick={() => setSelectedTimeFilter("Trưa")}
                       className="text-xs"
                     >
                       Trưa
                     </Button>
                     <Button
                       size="sm"
-                      variant={selectedTimeFilter === 'Chiều' ? 'default' : 'outline'}
-                      onClick={() => setSelectedTimeFilter('Chiều')}
+                      variant={
+                        selectedTimeFilter === "Chiều" ? "default" : "outline"
+                      }
+                      onClick={() => setSelectedTimeFilter("Chiều")}
                       className="text-xs"
                     >
                       Chiều
                     </Button>
                     <Button
                       size="sm"
-                      variant={selectedTimeFilter === 'Tối' ? 'default' : 'outline'}
-                      onClick={() => setSelectedTimeFilter('Tối')}
+                      variant={
+                        selectedTimeFilter === "Tối" ? "default" : "outline"
+                      }
+                      onClick={() => setSelectedTimeFilter("Tối")}
                       className="text-xs"
                     >
                       Tối
@@ -1523,12 +1970,17 @@ export default function PatientPage() {
                 {loadingReminders ? (
                   <div className="flex items-center justify-center py-12">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                    <span className="ml-3 text-muted-foreground">Đang tải nhắc nhở...</span>
+                    <span className="ml-3 text-muted-foreground">
+                      Đang tải nhắc nhở...
+                    </span>
                   </div>
                 ) : sortedReminders.length > 0 ? (
                   <div className="space-y-4">
                     {sortedReminders.map((r: any, idx: number) => (
-                      <Card key={idx} className="border-border/20 hover:shadow-md transition-all duration-200">
+                      <Card
+                        key={idx}
+                        className="border-border/20 hover:shadow-md transition-all duration-200"
+                      >
                         <CardContent className="p-4">
                           <div className="flex items-start gap-4">
                             {/* Time Badge */}
@@ -1537,7 +1989,9 @@ export default function PatientPage() {
                                 <div className="text-lg font-bold">
                                   {r.time?.slice?.(0, 5) || "--:--"}
                                 </div>
-                                <div className="text-xs opacity-90">Hôm nay</div>
+                                <div className="text-xs opacity-90">
+                                  Hôm nay
+                                </div>
                               </div>
                             </div>
 
@@ -1549,17 +2003,31 @@ export default function PatientPage() {
                                     {r.medicationName || "Thuốc"}
                                   </h3>
                                   <div className="flex items-center gap-2 mt-1">
-                                    <Badge variant="secondary" className="text-xs">
+                                    <Badge
+                                      variant="secondary"
+                                      className="text-xs"
+                                    >
                                       {r.dosage}
                                     </Badge>
-                                    <Badge variant="outline" className="text-xs">
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs"
+                                    >
                                       {translateRoute(r.route) || "Đường uống"}
                                     </Badge>
                                   </div>
                                 </div>
                                 <div className="shrink-0">
-                                  <Badge 
-                                    variant={r.status === 'TAKEN' ? 'default' : r.status === 'MISSED' ? 'destructive' : r.status === 'SKIPPED' ? 'secondary' : 'outline'}
+                                  <Badge
+                                    variant={
+                                      r.status === "TAKEN"
+                                        ? "default"
+                                        : r.status === "MISSED"
+                                        ? "destructive"
+                                        : r.status === "SKIPPED"
+                                        ? "secondary"
+                                        : "outline"
+                                    }
                                     className="text-xs"
                                   >
                                     {translateStatus(r.status)}
@@ -1571,7 +2039,10 @@ export default function PatientPage() {
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                                 <div className="flex items-center gap-2 text-muted-foreground">
                                   <Clock className="h-4 w-4" />
-                                  <span>Thời gian: {r.time?.slice?.(0, 5) || "--:--"}</span>
+                                  <span>
+                                    Thời gian:{" "}
+                                    {r.time?.slice?.(0, 5) || "--:--"}
+                                  </span>
                                 </div>
                                 <div className="flex items-center gap-2 text-muted-foreground">
                                   <Pill className="h-4 w-4" />
@@ -1579,13 +2050,17 @@ export default function PatientPage() {
                                 </div>
                                 {r.instructions && (
                                   <div className="md:col-span-2 flex items-start gap-2 text-muted-foreground">
-                                    <span className="font-medium">Hướng dẫn:</span>
+                                    <span className="font-medium">
+                                      Hướng dẫn:
+                                    </span>
                                     <span>{r.instructions}</span>
                                   </div>
                                 )}
                                 {r.prescriptionId && (
                                   <div className="md:col-span-2 flex items-center gap-2 text-muted-foreground">
-                                    <span className="font-medium">Đơn thuốc:</span>
+                                    <span className="font-medium">
+                                      Đơn thuốc:
+                                    </span>
                                     <code className="text-xs bg-muted/20 px-2 py-1 rounded">
                                       {r.prescriptionId.slice(0, 8)}...
                                     </code>
@@ -1595,12 +2070,14 @@ export default function PatientPage() {
 
                               {/* Action Button */}
                               {/* Action buttons - only show for today */}
-                              {r.status === 'PENDING' && isToday && (
+                              {r.status === "PENDING" && isToday && (
                                 <div className="mt-4 flex gap-2">
-                                  <Button 
-                                    size="sm" 
+                                  <Button
+                                    size="sm"
                                     className="bg-green-600 hover:bg-green-700 text-white"
-                                    onClick={() => handleConfirmIntakeFromReminder(r)}
+                                    onClick={() =>
+                                      handleConfirmIntakeFromReminder(r)
+                                    }
                                     disabled={loadingActions[`confirm-${r.id}`]}
                                   >
                                     {loadingActions[`confirm-${r.id}`] ? (
@@ -1610,11 +2087,13 @@ export default function PatientPage() {
                                     )}
                                     Xác nhận đã uống
                                   </Button>
-                                  <Button 
-                                    size="sm" 
+                                  <Button
+                                    size="sm"
                                     variant="outline"
                                     className="border-amber-300 text-amber-700 hover:bg-amber-50"
-                                    onClick={() => handleMarkMissedFromReminder(r)}
+                                    onClick={() =>
+                                      handleMarkMissedFromReminder(r)
+                                    }
                                     disabled={loadingActions[`missed-${r.id}`]}
                                   >
                                     {loadingActions[`missed-${r.id}`] ? (
@@ -1626,36 +2105,45 @@ export default function PatientPage() {
                                   </Button>
                                 </div>
                               )}
-                              
+
                               {/* Show info message for non-today dates */}
-                              {r.status === 'PENDING' && !isToday && (
+                              {r.status === "PENDING" && !isToday && (
                                 <div className="mt-4 flex items-center gap-2 text-muted-foreground bg-muted/30 px-3 py-2 rounded-lg">
                                   <Clock className="h-4 w-4" />
-                                  <span className="text-sm">Chỉ có thể thực hiện hành động vào ngày hôm nay</span>
+                                  <span className="text-sm">
+                                    Chỉ có thể thực hiện hành động vào ngày hôm
+                                    nay
+                                  </span>
                                 </div>
                               )}
-                              
+
                               {/* Show completion message for taken medications */}
-                              {r.status === 'TAKEN' && (
+                              {r.status === "TAKEN" && (
                                 <div className="mt-4 flex items-center gap-2 text-green-700 bg-green-50 px-3 py-2 rounded-lg">
                                   <CheckCircle className="h-4 w-4" />
-                                  <span className="text-sm font-medium">Đã xác nhận uống thuốc</span>
+                                  <span className="text-sm font-medium">
+                                    Đã xác nhận uống thuốc
+                                  </span>
                                 </div>
                               )}
-                              
+
                               {/* Show missed message */}
-                              {r.status === 'MISSED' && (
+                              {r.status === "MISSED" && (
                                 <div className="mt-4 flex items-center gap-2 text-amber-700 bg-amber-50 px-3 py-2 rounded-lg">
                                   <XCircle className="h-4 w-4" />
-                                  <span className="text-sm font-medium">Đã đánh dấu bỏ lỡ</span>
+                                  <span className="text-sm font-medium">
+                                    Đã đánh dấu bỏ lỡ
+                                  </span>
                                 </div>
                               )}
-                              
+
                               {/* Show skipped message */}
-                              {r.status === 'SKIPPED' && (
+                              {r.status === "SKIPPED" && (
                                 <div className="mt-4 flex items-center gap-2 text-gray-700 bg-gray-50 px-3 py-2 rounded-lg">
                                   <XCircle className="h-4 w-4" />
-                                  <span className="text-sm font-medium">Đã bỏ qua</span>
+                                  <span className="text-sm font-medium">
+                                    Đã bỏ qua
+                                  </span>
                                 </div>
                               )}
                             </div>
@@ -1668,19 +2156,20 @@ export default function PatientPage() {
                   <div className="text-center py-12">
                     <Clock className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
                     <h3 className="text-lg font-semibold text-foreground mb-2">
-                      {selectedTimeFilter === 'all' ? 'Không có nhắc nhở' : `Không có nhắc nhở buổi ${selectedTimeFilter}`}
+                      {selectedTimeFilter === "all"
+                        ? "Không có nhắc nhở"
+                        : `Không có nhắc nhở buổi ${selectedTimeFilter}`}
                     </h3>
                     <p className="text-muted-foreground">
-                      {selectedTimeFilter === 'all' 
-                        ? 'Bạn không có lịch uống thuốc nào cho ngày này'
-                        : `Bạn không có lịch uống thuốc nào cho buổi ${selectedTimeFilter}`
-                      }
+                      {selectedTimeFilter === "all"
+                        ? "Bạn không có lịch uống thuốc nào cho ngày này"
+                        : `Bạn không có lịch uống thuốc nào cho buổi ${selectedTimeFilter}`}
                     </p>
-                    {selectedTimeFilter !== 'all' && (
+                    {selectedTimeFilter !== "all" && (
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setSelectedTimeFilter('all')}
+                        onClick={() => setSelectedTimeFilter("all")}
                         className="mt-3"
                       >
                         Xem tất cả
@@ -1694,86 +2183,137 @@ export default function PatientPage() {
 
           {/* Alerts */}
           {activeTab === "alerts" && (
-            <div className="rounded-xl border border-border/20 bg-card p-4">
-              {loadingAlerts ? (
-                <div className="text-muted-foreground">Đang tải...</div>
-              ) : Array.isArray(alerts) ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {alerts.map((a: any, idx: number) => (
-                    <div
-                      key={idx}
-                      className="rounded-2xl border border-border/20 bg-background/70 shadow-sm hover:shadow-md transition-shadow"
-                    >
-                      <div className="p-4 flex items-start gap-4">
-                        <div
-                          className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-sm font-semibold ${
-                            a.resolved
-                              ? "bg-emerald-100 text-emerald-700"
-                              : "bg-amber-100 text-amber-700"
-                          }`}
-                        >
-                          !
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="text-sm font-semibold text-foreground truncate">
-                                {a.type === "MISSED_DOSE"
-                                  ? "Bỏ liều"
-                                  : a.type === "LOW_ADHERENCE"
-                                  ? "Tuân thủ thấp"
-                                  : "Cảnh báo"}
-                              </div>
-                              <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                                <span
-                                  className={`inline-flex px-2 py-0.5 rounded-md text-[11px] font-medium ${
-                                    a.resolved
-                                      ? "bg-emerald-100 text-emerald-700"
-                                      : "bg-amber-100 text-amber-700"
-                                  }`}
-                                >
-                                  {a.resolved ? "Đã xử lý" : "Chưa xử lý"}
-                                </span>
-                                {a.prescriptionId && (
-                                  <span className="h-3 w-px bg-border/50" />
-                                )}
-                                {a.prescriptionId && <span>Đơn thuốc</span>}
-                              </div>
-                            </div>
-                          </div>
-                          {a.message && (
-                            <div className="mt-2 text-xs text-muted-foreground line-clamp-2">
-                              {a.message}
-                            </div>
-                          )}
-                          {!a.resolved && (
-                            <div className="mt-3">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleResolveAlert(a.id)}
-                                disabled={loadingActions[`resolve-${a.id}`]}
-                                className="text-xs"
-                              >
-                                {loadingActions[`resolve-${a.id}`] ? (
-                                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary mr-1"></div>
-                                ) : (
-                                  <CheckCircle className="h-3 w-3 mr-1" />
-                                )}
-                                Đánh dấu đã xử lý
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
+            <div className="space-y-6">
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold tracking-tight">
+                    Cảnh báo
+                  </h2>
+                  <p className="text-muted-foreground">
+                    Thông báo và nhắc nhở từ bác sĩ
+                  </p>
+                </div>
+                {Array.isArray(alerts) &&
+                  alerts.filter((a: any) => !a.resolved).length > 0 && (
+                    <Badge variant="destructive" className="text-sm px-3 py-1">
+                      {alerts.filter((a: any) => !a.resolved).length} chưa xử lý
+                    </Badge>
+                  )}
+              </div>
+
+              <Card className="border-border/20">
+                <CardContent className="p-6">
+                  {loadingAlerts ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                      <span className="ml-3 text-muted-foreground">
+                        Đang tải cảnh báo...
+                      </span>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-xs text-muted-foreground">
-                  Không có cảnh báo
-                </div>
-              )}
+                  ) : Array.isArray(alerts) && alerts.length > 0 ? (
+                    <div className="space-y-4">
+                      {alerts.map((a: any, idx: number) => (
+                        <Card
+                          key={idx}
+                          className={`border-l-4 ${
+                            a.resolved
+                              ? "border-l-emerald-500 bg-emerald-50/30"
+                              : "border-l-amber-500 bg-amber-50/30"
+                          } hover:shadow-md transition-all duration-200`}
+                        >
+                          <CardContent className="p-4">
+                            <div className="flex items-start gap-4">
+                              <div
+                                className={`shrink-0 w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold ${
+                                  a.resolved
+                                    ? "bg-emerald-100 text-emerald-700"
+                                    : "bg-amber-100 text-amber-700 animate-pulse"
+                                }`}
+                              >
+                                !
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-3 mb-2">
+                                  <div className="min-w-0">
+                                    <h3 className="text-lg font-semibold text-foreground">
+                                      {a.type === "MISSED_DOSE"
+                                        ? "Bỏ liều thuốc"
+                                        : a.type === "LOW_ADHERENCE"
+                                        ? "Nhắc nhở từ bác sĩ"
+                                        : "Cảnh báo"}
+                                    </h3>
+                                    <div className="mt-1 flex items-center gap-2">
+                                      <Badge
+                                        className={`text-xs ${
+                                          a.resolved
+                                            ? "bg-emerald-100 text-emerald-700"
+                                            : "bg-amber-100 text-amber-700"
+                                        }`}
+                                      >
+                                        {a.resolved ? "Đã xử lý" : "Chưa xử lý"}
+                                      </Badge>
+                                      {a.prescriptionId && (
+                                        <>
+                                          <span className="h-3 w-px bg-border/50" />
+                                          <span className="text-xs text-muted-foreground">
+                                            Đơn thuốc
+                                          </span>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {a.message && (
+                                  <div className="mt-3 p-3 bg-background/60 rounded-lg border border-border/20">
+                                    <p className="text-sm text-foreground leading-relaxed">
+                                      {a.message}
+                                    </p>
+                                  </div>
+                                )}
+
+                                {!a.resolved && (
+                                  <div className="mt-4 flex items-center gap-3">
+                                    <Button
+                                      size="sm"
+                                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                      onClick={() => handleResolveAlert(a.id)}
+                                      disabled={
+                                        loadingActions[`resolve-${a.id}`]
+                                      }
+                                    >
+                                      {loadingActions[`resolve-${a.id}`] ? (
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                      ) : (
+                                        <CheckCircle className="h-4 w-4 mr-2" />
+                                      )}
+                                      Đánh dấu đã xử lý
+                                    </Button>
+                                    <span className="text-xs text-muted-foreground">
+                                      Nhấn để xác nhận bạn đã đọc thông báo này
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <AlertTriangle className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
+                      <h3 className="text-lg font-semibold text-foreground mb-2">
+                        Không có cảnh báo
+                      </h3>
+                      <p className="text-muted-foreground">
+                        Bạn không có cảnh báo nào từ bác sĩ
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
           )}
 
@@ -1874,7 +2414,7 @@ export default function PatientPage() {
                                         ? "Bỏ liều"
                                         : "Bỏ qua"}
                                     </span>
-                                    {log.notes && !log.notes.includes('-') && (
+                                    {log.notes && !log.notes.includes("-") && (
                                       <span className="text-[11px] text-muted-foreground">
                                         • {log.notes}
                                       </span>
@@ -1899,7 +2439,12 @@ export default function PatientPage() {
         </div>
 
         {/* First warning dialog for PATIENT */}
-        <Dialog open={firstWarningDialog.open} onOpenChange={(open) => setFirstWarningDialog(prev => ({ ...prev, open }))}>
+        <Dialog
+          open={firstWarningDialog.open}
+          onOpenChange={(open) =>
+            setFirstWarningDialog((prev) => ({ ...prev, open }))
+          }
+        >
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -1911,19 +2456,32 @@ export default function PatientPage() {
               {firstWarningDialog.doctorName && (
                 <div className="text-sm">
                   <span className="text-muted-foreground">Bác sĩ: </span>
-                  <span className="font-medium">{firstWarningDialog.doctorName}</span>
+                  <span className="font-medium">
+                    {firstWarningDialog.doctorName}
+                  </span>
                 </div>
               )}
               <p className="text-sm text-foreground">
-                {firstWarningDialog.message || 'Bạn nhận được nhắc nhở tuân thủ uống thuốc đều đặn và đúng giờ.'}
+                {firstWarningDialog.message ||
+                  "Bạn nhận được nhắc nhở tuân thủ uống thuốc đều đặn và đúng giờ."}
               </p>
               <Separator />
               <p className="text-xs text-muted-foreground">
-                Vui lòng xem lại lịch uống thuốc trong mục Nhắc nhở và tuân thủ theo chỉ định.
+                Vui lòng xem lại lịch uống thuốc trong mục Nhắc nhở và tuân thủ
+                theo chỉ định.
               </p>
             </div>
             <DialogFooter>
-              <Button onClick={() => setFirstWarningDialog(prev => ({ ...prev, open: false }))} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+              <Button
+                onClick={() => {
+                  // Mark as dismissed for today
+                  const today = new Date().toISOString().slice(0, 10);
+                  const dismissedKey = `warning_dialog_dismissed_${today}`;
+                  localStorage.setItem(dismissedKey, "true");
+                  setFirstWarningDialog((prev) => ({ ...prev, open: false }));
+                }}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
                 Tôi đã hiểu
               </Button>
             </DialogFooter>
@@ -1948,25 +2506,24 @@ export default function PatientPage() {
           </p>
         </div>
       </div>
-      
+
       {/* Time Validation Dialog */}
       <TimeValidationDialog
         open={timeValidationDialog.open}
         onOpenChange={(open) => {
-          console.log('Dialog onOpenChange:', open);
-          setTimeValidationDialog(prev => ({ ...prev, open }));
+          console.log("Dialog onOpenChange:", open);
+          setTimeValidationDialog((prev) => ({ ...prev, open }));
         }}
         onConfirm={() => {
-          console.log('Dialog onConfirm');
+          console.log("Dialog onConfirm");
           if (timeValidationDialog.reminder) {
             confirmIntakeAction(timeValidationDialog.reminder);
           }
         }}
-        medicationName={timeValidationDialog.reminder?.medicationName || ''}
-        timeSlot={formatTimeSlot(timeValidationDialog.reminder?.time || '')}
+        medicationName={timeValidationDialog.reminder?.medicationName || ""}
+        timeSlot={formatTimeSlot(timeValidationDialog.reminder?.time || "")}
         currentTimeSlot={getCurrentTimeInVietnamese()}
       />
-
     </main>
   );
 }
