@@ -9,7 +9,7 @@ const envSchema = z.object({
   JWT_REFRESH_TOKEN_EXPIRATION_TIME: z.string(),
   COOKIE_SECRET: z.string(),
   JWT_VERIFY_TOKEN_SECRET_KEY: z.string(),
-  JWT_VERIFY_TOKEN_EXPIRATION_TIME: z.string(),
+  JWT_VERIFY_TOKEN_EXPIRATION_TIME: z.string()
 });
 
 export default registerAs('auth', () => {
@@ -22,6 +22,6 @@ export default registerAs('auth', () => {
     refreshTokenExpiresIn: env.JWT_REFRESH_TOKEN_EXPIRATION_TIME,
     cookieSecret: env.COOKIE_SECRET,
     verifyTokenSecret: env.JWT_VERIFY_TOKEN_SECRET_KEY,
-    verifyTokenExpiresIn: env.JWT_VERIFY_TOKEN_EXPIRATION_TIME,
+    verifyTokenExpiresIn: env.JWT_VERIFY_TOKEN_EXPIRATION_TIME
   };
 });
