@@ -193,4 +193,35 @@ export const DoctorApi = {
     const res = await axiosInstance.post(`/doctor/patients/${patientId}/warn`, { message });
     return res.data as { message: string; alertId: string };
   },
+
+  // Adherence - Patients with detailed adherence status and alert types
+  listPatientsWithAdherenceAndAlerts: async (sinceDays?: number) => {
+    const res = await axiosInstance.get(
+      "/doctor/adherence/status",
+      { params: { sinceDays } }
+    );
+    return (res.data?.data ?? res.data) as {
+      items: Array<{
+        patientId: string;
+        fullName: string;
+        phoneNumber: string;
+        adherence: {
+          taken: number;
+          missed: number;
+          skipped: number;
+        };
+        alerts: {
+          missedDose: number;
+          lowAdherence: number;
+          other: number;
+        };
+        primaryStatus: 'TAKEN' | 'MISSED' | 'MIXED';
+        totalMissed: number;
+        totalTaken: number;
+        totalAlerts: number;
+      }>;
+      total: number;
+      since: string;
+    };
+  },
 };
