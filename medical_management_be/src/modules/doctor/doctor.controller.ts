@@ -235,6 +235,14 @@ export class DoctorController {
     );
   }
 
+  // Test WebSocket notification (for debugging)
+  @Post('test-websocket')
+  async testWebSocket(@UserInfo() user: IUserFromToken) {
+    this.ensureDoctor(user);
+    return this.doctorService.testWebSocketNotification(user.id);
+  }
+
+
   // CRUD Operations for Doctor Management
   @Post('doctor')
   async createDoctor(

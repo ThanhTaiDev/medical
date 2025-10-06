@@ -17,7 +17,7 @@ import {
 
 @Injectable()
 export class DoctorService {
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(private readonly databaseService: DatabaseService) { }
 
   private mapGender(input?: string | null): Gender | null {
     if (!input) return null;
@@ -791,10 +791,13 @@ export class DoctorService {
     const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
 
-    // Find all prescriptions of this doctor and collect related patientIds
+    // Find all ACTIVE prescriptions of this doctor and collect related patientIds
     const prescriptions =
       await this.databaseService.client.prescription.findMany({
-        where: { doctorId },
+        where: {
+          doctorId,
+          status: PrescriptionStatus.ACTIVE
+        },
         select: { id: true, patientId: true }
       });
 
@@ -825,7 +828,7 @@ export class DoctorService {
         by: ['patientId', 'status'],
         where: {
           patientId: { in: patientIds },
-          takenAt: { 
+          takenAt: {
             gte: startOfToday,
             lt: endOfToday
           },
@@ -851,7 +854,7 @@ export class DoctorService {
       where: {
         patientId: { in: patientIds },
         type: 'LOW_ADHERENCE',
-        createdAt: { 
+        createdAt: {
           gte: startOfToday,
           lt: endOfToday
         }
@@ -928,7 +931,11 @@ export class DoctorService {
     // Fetch patient basic info
     const patients = await this.databaseService.client.user.findMany({
       where: { id: { in: patientIds } },
-      select: { id: true, fullName: true, phoneNumber: true }
+      select: {
+        id: true,
+        fullName: true,
+        phoneNumber: true
+      }
     });
 
     const items = patients.map((patient) => {
@@ -992,6 +999,21 @@ export class DoctorService {
     });
 
     return { items, total: items.length, since: sinceDate.toISOString() };
+  }
+
+  // Test WebSocket notification
+  async testWebSocketNotification(doctorId: string) {
+    // Import WebSocket gateway dynamically to avoid circular dependency
+    const { MedicalManagementGateway } = await import('@/modules/notifications/websocket.gateway');
+    const gateway = new MedicalManagementGateway();
+
+    gateway.notifyDoctorAdherenceUpdate(doctorId, 'test-patient-id', 'TAKEN');
+
+    return {
+      message: 'WebSocket test notification sent',
+      doctorId,
+      timestamp: new Date().toISOString()
+    };
   }
 
   // CRUD Operations for Doctor Management
