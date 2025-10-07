@@ -55,13 +55,17 @@ export class DoctorService {
     const [items, total] = await Promise.all([
       this.databaseService.client.user.findMany({
         where,
-        include: { profile: true },
+        include: { 
+          profile: true,
+          majorDoctor: true 
+        },
         orderBy: { [orderByField]: orderDir },
         skip: (page - 1) * limit,
         take: limit
       }),
       this.databaseService.client.user.count({ where })
     ]);
+    
     return { data: items, total, page, limit };
   }
   // Patients

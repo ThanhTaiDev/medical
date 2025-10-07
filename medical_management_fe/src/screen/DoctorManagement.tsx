@@ -191,7 +191,7 @@ const DoctorManagement: React.FC = () => {
 
   // Function để lấy tên chuyên khoa từ ID
   const getMajorDoctorNameById = (majorDoctorId: string): string => {
-    if (!majorDoctorsData?.data) return "-";
+    if (!majorDoctorId || !majorDoctorsData?.data) return "-";
     const major = majorDoctorsData.data.find(m => m.id === majorDoctorId);
     return major?.name || "-";
   };
@@ -267,6 +267,7 @@ const DoctorManagement: React.FC = () => {
         sortOrder: "desc",
       }),
   });
+
 
   // Mutations
   const createPatientMutation = useMutation({
@@ -2351,7 +2352,7 @@ const DoctorManagement: React.FC = () => {
                               </TableCell>
                               <TableCell className="py-4">
                                 <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 border border-blue-300/50">
-                                  {doctor.majorDoctor
+                                  {doctor.majorDoctor?.id
                                     ? getMajorDoctorNameById(doctor.majorDoctor.id)
                                     : "-"}
                                 </span>
