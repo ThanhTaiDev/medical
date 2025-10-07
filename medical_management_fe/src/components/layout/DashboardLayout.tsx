@@ -38,7 +38,7 @@ const adminMenuItems = [
     icon: UserRound,
   },
   {
-    title: "Quản lý chuyên khoa",
+    title: "Chuyên khoa",
     url: "/dashboard/major-management",
     icon: Activity,
   },
