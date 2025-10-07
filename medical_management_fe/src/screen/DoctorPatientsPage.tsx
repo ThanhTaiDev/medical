@@ -2017,16 +2017,13 @@ export default function DoctorPatientsPage() {
                         Phẫu thuật
                       </label>
                       <Input
-                        placeholder="Ví dụ: Cắt ruột thừa, Mổ tim..."
+                        placeholder="Nhập thông tin phẫu thuật..."
                         className="transition-all duration-200 focus:ring-2 focus:ring-emerald-500/20"
-                        value={historyForm.surgeries.join(", ")}
+                        value={historyForm.surgeries[0] || ""}
                         onChange={(e) =>
                           setHistoryForm((p) => ({
                             ...p,
-                            surgeries: e.target.value
-                              .split(",")
-                              .map((s) => s.trim())
-                              .filter(Boolean),
+                            surgeries: [e.target.value],
                           }))
                         }
                       />
