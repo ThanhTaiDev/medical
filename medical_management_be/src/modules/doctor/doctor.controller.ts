@@ -69,6 +69,30 @@ export class DoctorController {
     return this.doctorService.getPatient(id);
   }
 
+  // Lấy danh sách bệnh nhân theo DoctorID cụ thể
+  @Get('patients/doctor/:doctorId')
+  async getPatientsByDoctorId(
+    @Param('doctorId') doctorId: string,
+    @UserInfo() user: IUserFromToken,
+    @Query('q') q?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: 'asc' | 'desc'
+  ) {
+    this.ensureDoctor(user);
+    
+    // Admin có thể xem bệnh nhân của bất kỳ bác sĩ nào, Doctor chỉ xem được bệnh nhân của mình
+    const effectiveDoctorId = user.roles === UserRole.ADMIN ? doctorId : user.id;
+    
+    return this.doctorService.getPatientsByDoctorId(effectiveDoctorId, q, {
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+      sortBy,
+      sortOrder
+    });
+  }
+
   @Post('patients')
   async createPatient(
     @Body()

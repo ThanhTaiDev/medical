@@ -1,0 +1,264 @@
+{
+  "info": {
+    "name": "Test Doctor Patients API",
+    "description": "Collection để test API lấy bệnh nhân đang điều trị của bác sĩ",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "doctorId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Login Doctor",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    const response = pm.response.json();",
+              "    pm.collectionVariables.set('accessToken', response.accessToken);",
+              "    pm.collectionVariables.set('doctorId', response.user.id);",
+              "    console.log('Token saved:', response.accessToken);",
+              "    console.log('Doctor ID saved:', response.user.id);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"phoneNumber\": \"0881000007\",\n  \"password\": \"your_password_here\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "login"]
+        },
+        "description": "Đăng nhập với số điện thoại 0881000007 để lấy token"
+      }
+    },
+    {
+      "name": "2. Get Doctor Info",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    const response = pm.response.json();",
+              "    console.log('Doctor info:', response);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/me",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "me"]
+        },
+        "description": "Lấy thông tin bác sĩ hiện tại"
+      }
+    },
+    {
+      "name": "3. Get Active Patients (Đang điều trị)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    const response = pm.response.json();",
+              "    console.log('Total active patients:', response.total);",
+              "    console.log('Active patients:', response.items);",
+              "    ",
+              "    // Hiển thị kết quả",
+              "    pm.test('API call successful', function () {",
+              "        pm.response.to.have.status(200);",
+              "    });",
+              "    ",
+              "    pm.test('Response has total count', function () {",
+              "        pm.expect(response).to.have.property('total');",
+              "    });",
+              "    ",
+              "    pm.test('Response has items array', function () {",
+              "        pm.expect(response).to.have.property('items');",
+              "        pm.expect(response.items).to.be.an('array');",
+              "    });",
+              "    ",
+              "    // Log số lượng bệnh nhân đang điều trị",
+              "    console.log(`\\n=== KẾT QUẢ ===`);",
+              "    console.log(`Bác sĩ có ${response.total} bệnh nhân đang điều trị`);",
+              "    if (response.items.length > 0) {",
+              "        console.log('Danh sách bệnh nhân:');",
+              "        response.items.forEach((patient, index) => {",
+              "            console.log(`${index + 1}. ${patient.patientName} (${patient.phoneNumber}) - Tuân thủ: ${(patient.adherence.rate * 100).toFixed(1)}%`);",
+              "        });",
+              "    }",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/doctor/overview/active-patients?doctorId={{doctorId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["doctor", "overview", "active-patients"],
+          "query": [
+            {
+              "key": "doctorId",
+              "value": "{{doctorId}}"
+            }
+          ]
+        },
+        "description": "Lấy danh sách bệnh nhân đang điều trị (có đơn thuốc ACTIVE)"
+      }
+    },
+    {
+      "name": "4. Get All Patients of Doctor",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    const response = pm.response.json();",
+              "    console.log('Total patients:', response.total);",
+              "    console.log('All patients:', response.data);",
+              "    ",
+              "    pm.test('API call successful', function () {",
+              "        pm.response.to.have.status(200);",
+              "    });",
+              "    ",
+              "    pm.test('Response has total count', function () {",
+              "        pm.expect(response).to.have.property('total');",
+              "    });",
+              "    ",
+              "    pm.test('Response has data array', function () {",
+              "        pm.expect(response).to.have.property('data');",
+              "        pm.expect(response.data).to.be.an('array');",
+              "    });",
+              "    ",
+              "    // Log số lượng bệnh nhân tổng",
+              "    console.log(`\\n=== KẾT QUẢ TỔNG ===`);",
+              "    console.log(`Bác sĩ có ${response.total} bệnh nhân tổng cộng`);",
+              "    if (response.data.length > 0) {",
+              "        console.log('Danh sách tất cả bệnh nhân:');",
+              "        response.data.forEach((patient, index) => {",
+              "            console.log(`${index + 1}. ${patient.fullName} (${patient.phoneNumber})`);",
+              "        });",
+              "    }",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/doctor/patients/doctor/{{doctorId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["doctor", "patients", "doctor", "{{doctorId}}"]
+        },
+        "description": "Lấy tất cả bệnh nhân của bác sĩ (không chỉ đang điều trị)"
+      }
+    },
+    {
+      "name": "5. Get Doctor Overview",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    const response = pm.response.json();",
+              "    console.log('Doctor overview:', response);",
+              "    ",
+              "    pm.test('API call successful', function () {",
+              "        pm.response.to.have.status(200);",
+              "    });",
+              "    ",
+              "    // Log tổng quan",
+              "    console.log(`\\n=== TỔNG QUAN BÁC SĨ ===`);",
+              "    console.log(`Tổng đơn thuốc: ${response.totalPrescriptions}`);",
+              "    console.log(`Bệnh nhân đang điều trị: ${response.activePatientsCount}`);",
+              "    console.log(`Tỷ lệ tuân thủ: ${(response.adherenceRate * 100).toFixed(1)}%`);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/doctor/overview?doctorId={{doctorId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["doctor", "overview"],
+          "query": [
+            {
+              "key": "doctorId",
+              "value": "{{doctorId}}"
+            }
+          ]
+        },
+        "description": "Lấy tổng quan về bác sĩ (số đơn thuốc, bệnh nhân đang điều trị, tỷ lệ tuân thủ)"
+      }
+    }
+  ]
+}

@@ -883,10 +883,10 @@ export default function DoctorPatientsPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">
-              Quản lý bệnh nhân
+              Bệnh nhân đang điều trị
             </h1>
             <p className="text-muted-foreground">
-              Thêm, sửa, xóa bệnh nhân (bác sĩ)
+              Quản lý bệnh nhân có đơn thuốc đang hoạt động
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -1039,6 +1039,16 @@ export default function DoctorPatientsPage() {
                         </span>
                       </div>
 
+                      {/* Adherence - Show if available */}
+                      {p.adherence && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <div className="w-1 h-1 rounded-full bg-emerald-500"></div>
+                          <span>
+                            Tuân thủ: {(p.adherence.rate * 100).toFixed(1)}%
+                          </span>
+                        </div>
+                      )}
+                      
                       {/* Medical History - Always show */}
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <div className="w-1 h-1 rounded-full bg-purple-500"></div>
@@ -1121,7 +1131,7 @@ export default function DoctorPatientsPage() {
                 ) : (
                   <>
                     Trang {pagination?.currentPage} / {pagination?.totalPages} —
-                    Tổng {pagination?.total} bệnh nhân
+                    Tổng {pagination?.total} bệnh nhân đang điều trị
                   </>
                 )}
               </div>

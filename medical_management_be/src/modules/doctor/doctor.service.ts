@@ -68,7 +68,7 @@ export class DoctorService {
     
     return { data: items, total, page, limit };
   }
-  // Patients
+  // Patients - chỉ lấy bệnh nhân đang điều trị
   async listPatients(
     doctorId: string,
     q?: string,
@@ -79,11 +79,38 @@ export class DoctorService {
       sortOrder?: 'asc' | 'desc';
     }
   ) {
+    // Lấy danh sách patient IDs có đơn thuốc ACTIVE của bác sĩ này
+    const activePrescriptions = await this.databaseService.client.prescription.findMany({
+      where: {
+        doctorId: doctorId,
+        status: 'ACTIVE',
+      },
+      select: {
+        patientId: true
+      }
+    });
+
+    // Lấy unique patient IDs
+    const activePatientIds = [...new Set(activePrescriptions.map(p => p.patientId))];
+    
+
+    if (activePatientIds.length === 0) {
+      return { 
+        data: [], 
+        total: 0, 
+        page: params?.page || 1, 
+        limit: params?.limit || 20 
+      };
+    }
+
     const where: any = {
       role: 'PATIENT',
       deletedAt: null,
+      id: { in: activePatientIds }, // Chỉ lấy bệnh nhân có đơn thuốc ACTIVE
       ...(q ? { fullName: { contains: q, mode: 'insensitive' } } : {})
     };
+    
+    
     const page = params?.page && params.page > 0 ? params.page : 1;
     const limit = params?.limit && params.limit > 0 ? params.limit : 20;
     const orderByField = params?.sortBy || 'createdAt';
@@ -120,6 +147,100 @@ export class DoctorService {
       throw new NotFoundException('Patient not found');
     }
     return user;
+  }
+
+  // Lấy danh sách bệnh nhân đang điều trị theo DoctorID cụ thể
+  async getPatientsByDoctorId(
+    doctorId: string,
+    q?: string,
+    params?: {
+      page?: number;
+      limit?: number;
+      sortBy?: string;
+      sortOrder?: 'asc' | 'desc';
+    }
+  ) {
+    // Kiểm tra bác sĩ có tồn tại không
+    const doctor = await this.databaseService.client.user.findUnique({
+      where: { id: doctorId, role: UserRole.DOCTOR, deletedAt: null }
+    });
+    
+    if (!doctor) {
+      throw new NotFoundException('Doctor not found');
+    }
+
+    // Lấy danh sách patient IDs có đơn thuốc ACTIVE của bác sĩ này
+    const activePrescriptions = await this.databaseService.client.prescription.findMany({
+      where: {
+        doctorId: doctorId,
+        status: 'ACTIVE',
+      },
+      select: {
+        patientId: true
+      }
+    });
+
+    // Lấy unique patient IDs
+    const activePatientIds = [...new Set(activePrescriptions.map(p => p.patientId))];
+
+    if (activePatientIds.length === 0) {
+      return { 
+        data: [], 
+        total: 0, 
+        page: params?.page || 1, 
+        limit: params?.limit || 20,
+        doctor: {
+          id: doctor.id,
+          fullName: doctor.fullName,
+          majorDoctorId: doctor.majorDoctorId
+        }
+      };
+    }
+
+    const where: any = {
+      role: 'PATIENT',
+      deletedAt: null,
+      id: { in: activePatientIds }, // Chỉ lấy bệnh nhân có đơn thuốc ACTIVE
+      ...(q ? { fullName: { contains: q, mode: 'insensitive' } } : {})
+    };
+
+    const page = params?.page && params.page > 0 ? params.page : 1;
+    const limit = params?.limit && params.limit > 0 ? params.limit : 20;
+    const orderByField = params?.sortBy || 'createdAt';
+    const orderDir = params?.sortOrder || 'desc';
+
+    const [items, total] = await Promise.all([
+      this.databaseService.client.user.findMany({
+        where,
+        include: { 
+          profile: true,
+          createdByUser: {
+            select: {
+              id: true,
+              fullName: true,
+              majorDoctor: true,
+              role: true
+            }
+          }
+        },
+        orderBy: { [orderByField]: orderDir },
+        skip: (page - 1) * limit,
+        take: limit
+      }),
+      this.databaseService.client.user.count({ where })
+    ]);
+
+    return { 
+      data: items, 
+      total, 
+      page, 
+      limit,
+      doctor: {
+        id: doctor.id,
+        fullName: doctor.fullName,
+        majorDoctorId: doctor.majorDoctorId
+      }
+    };
   }
 
   async createPatient(
