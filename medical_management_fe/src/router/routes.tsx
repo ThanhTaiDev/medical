@@ -6,6 +6,7 @@ import PatientPage from "@/screen/PatientPage";
 import Login from "@/screen/Login";
 import DoctorManagement from "@/screen/DoctorManagement";
 import UserManagement from "@/screen/UserManagement";
+import MajorManagement from "@/screen/MajorManagement";
 import HealthOverview from "@/screen/HealthOverview";
 import DoctorPatientsPage from "@/screen/DoctorPatientsPage";
 import DoctorMissisPillPage from "@/screen/DoctorMissisPillPage";
@@ -67,6 +68,10 @@ export const routes: RouteObject[] = [
       {
         path: "user-management",
         element: <UserManagement />,
+      },
+      {
+        path: "major-management",
+        element: <MajorManagement />,
       },
       {
         path: "patients",

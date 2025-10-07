@@ -37,6 +37,11 @@ const adminMenuItems = [
     url: "/dashboard/user-management",
     icon: UserRound,
   },
+  {
+    title: "Quản lý chuyên khoa",
+    url: "/dashboard/major-management",
+    icon: Activity,
+  },
 ];
 
 const doctorOnlyMenuItems = [
