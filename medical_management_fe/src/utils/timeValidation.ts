@@ -74,9 +74,35 @@ export function getCurrentTimeInVietnamese(): string {
   if (hour >= 6 && hour < 10) return 'Sáng';
   if (hour >= 11 && hour < 14) return 'Trưa';
   if (hour >= 14 && hour < 17) return 'Chiều';
-  if (hour >= 18 && hour < 23) return 'Tối';
+  if (hour >= 18 && hour < 22) return 'Tối';
   if (hour >= 22 || hour < 6) return 'Đêm';
   
   // Fallback for edge cases
+  return 'Ngoài giờ';
+}
+
+/**
+ * Convert time string (HH:MM) to Vietnamese time slot
+ */
+export function getTimeSlotFromTime(timeString: string): string {
+  if (!timeString || typeof timeString !== 'string') return 'Ngoài giờ';
+  
+  // Extract hour from time string (e.g., "08:00" -> 8)
+  const [hourStr] = timeString.split(':');
+  const hour = parseInt(hourStr, 10);
+  
+  if (isNaN(hour)) return 'Ngoài giờ';
+  
+  // Map hour to time slot based on VIETNAMESE_TIME_SLOTS
+  if (hour >= 6 && hour < 10) return 'Sáng';
+  if (hour >= 11 && hour < 14) return 'Trưa';
+  if (hour >= 14 && hour < 17) return 'Chiều';
+  if (hour >= 18 && hour < 22) return 'Tối';
+  if (hour >= 22 || hour < 6) return 'Đêm';
+  
+  // Edge cases: 10-11 and 17-18
+  if (hour >= 10 && hour < 11) return 'Sáng'; // Close to morning
+  if (hour >= 17 && hour < 18) return 'Chiều'; // Close to afternoon
+  
   return 'Ngoài giờ';
 }

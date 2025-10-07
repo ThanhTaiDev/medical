@@ -21,6 +21,7 @@ import {
   isWithinTimeSlot,
   formatTimeSlot,
   getCurrentTimeInVietnamese,
+  getTimeSlotFromTime,
 } from "@/utils/timeValidation";
 import { translateRoute, translateStatus } from "@/utils/vietnameseEnums";
 import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
@@ -399,7 +400,9 @@ export default function PatientPage() {
   const filteredReminders =
     reminders?.filter((reminder: any) => {
       if (selectedTimeFilter === "all") return true;
-      return reminder.time === selectedTimeFilter;
+      // Convert time string (HH:MM) to time slot (Sáng/Trưa/Chiều/Tối)
+      const reminderTimeSlot = getTimeSlotFromTime(reminder.time);
+      return reminderTimeSlot === selectedTimeFilter;
     }) || [];
 
   // Sort reminders: PENDING first, then by time
