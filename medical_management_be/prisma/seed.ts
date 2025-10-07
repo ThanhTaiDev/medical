@@ -44,7 +44,7 @@ async function upsertUser(params: {
   fullName: string;
   role: UserRole;
   status?: UserStatus;
-  majorDoctor?: MajorDoctor;
+  majorDoctorId?: string;
   createdBy?: string;
 }) {
   const passwordHash = await bcrypt.hash(params.password ?? DEFAULT_PASSWORD, 10);
@@ -57,10 +57,39 @@ async function upsertUser(params: {
       fullName: params.fullName,
       role: params.role,
       status: params.status ?? UserStatus.ACTIVE,
-      majorDoctor: params.majorDoctor,
+      majorDoctorId: params.majorDoctorId,
       createdBy: params.createdBy
     }
   });
+}
+
+async function createMajorDoctors() {
+  const majorDoctors = [
+    { code: 'DINH_DUONG', name: 'Dinh dưỡng', nameEn: 'Nutrition', description: 'Chuyên khoa dinh dưỡng và chế độ ăn uống', sortOrder: 1 },
+    { code: 'TAM_THAN', name: 'Tâm thần', nameEn: 'Psychiatry', description: 'Chuyên khoa tâm thần và sức khỏe tâm lý', sortOrder: 2 },
+    { code: 'TIM_MACH', name: 'Tim mạch', nameEn: 'Cardiology', description: 'Chuyên khoa tim mạch và huyết áp', sortOrder: 3 },
+    { code: 'NOI_TIET', name: 'Nội tiết', nameEn: 'Endocrinology', description: 'Chuyên khoa nội tiết và chuyển hóa', sortOrder: 4 },
+    { code: 'NGOAI_KHOA', name: 'Ngoại khoa', nameEn: 'Surgery', description: 'Chuyên khoa ngoại khoa tổng quát', sortOrder: 5 },
+    { code: 'PHU_SAN', name: 'Phụ sản', nameEn: 'Obstetrics & Gynecology', description: 'Chuyên khoa phụ sản và sản phụ khoa', sortOrder: 6 },
+    { code: 'NHI_KHOA', name: 'Nhi khoa', nameEn: 'Pediatrics', description: 'Chuyên khoa nhi và trẻ em', sortOrder: 7 },
+    { code: 'MAT', name: 'Mắt', nameEn: 'Ophthalmology', description: 'Chuyên khoa mắt và thị lực', sortOrder: 8 },
+    { code: 'TAI_MUI_HONG', name: 'Tai mũi họng', nameEn: 'ENT', description: 'Chuyên khoa tai mũi họng', sortOrder: 9 },
+    { code: 'DA_LIEU', name: 'Da liễu', nameEn: 'Dermatology', description: 'Chuyên khoa da liễu và thẩm mỹ', sortOrder: 10 },
+    { code: 'XUONG_KHOP', name: 'Xương khớp', nameEn: 'Orthopedics', description: 'Chuyên khoa xương khớp và cột sống', sortOrder: 11 },
+    { code: 'THAN_KINH', name: 'Thần kinh', nameEn: 'Neurology', description: 'Chuyên khoa thần kinh và não bộ', sortOrder: 12 },
+    { code: 'UNG_BUOU', name: 'Ung bướu', nameEn: 'Oncology', description: 'Chuyên khoa ung bướu và ung thư', sortOrder: 13 },
+    { code: 'HO_HAP', name: 'Hô hấp', nameEn: 'Pulmonology', description: 'Chuyên khoa hô hấp và phổi', sortOrder: 14 },
+    { code: 'TIEU_HOA', name: 'Tiêu hóa', nameEn: 'Gastroenterology', description: 'Chuyên khoa tiêu hóa và gan mật', sortOrder: 15 },
+    { code: 'THAN_TIET_NIEU', name: 'Thận tiết niệu', nameEn: 'Nephrology & Urology', description: 'Chuyên khoa thận và tiết niệu', sortOrder: 16 },
+  ];
+
+  const created = [] as Array<{ id: string; code: string }>;
+  for (const major of majorDoctors) {
+    const existed = await prisma.majorDoctorTable.findFirst({ where: { code: major.code } });
+    const majorDoctor = existed ?? (await prisma.majorDoctorTable.create({ data: major }));
+    created.push({ id: majorDoctor.id, code: majorDoctor.code });
+  }
+  return created;
 }
 
 async function createMedications() {
@@ -134,6 +163,7 @@ async function cleanupAll() {
   await prisma.patientProfile.deleteMany({});
   await prisma.medication.deleteMany({});
   await prisma.user.deleteMany({});
+  await prisma.majorDoctorTable.deleteMany({});
 }
 
 async function seed() {
@@ -141,21 +171,23 @@ async function seed() {
 
   await cleanupAll();
 
-  // 1) Users
+  // 1) Major Doctors
+  const majorDoctors = await createMajorDoctors();
+
+  // 2) Users
   await upsertUser({
     phoneNumber: generateVietnamPhone(0),
     fullName: 'Quản trị Hệ thống',
     role: UserRole.ADMIN
   });
 
-  const majorDoctors = Object.values(MajorDoctor);
   const doctors: Array<{ id: string; fullName: string }> = [];
   for (let i = 1; i <= 10; i++) {
     const d = await upsertUser({
       phoneNumber: generateVietnamPhone(i),
       fullName: `BS. ${generateVietnamName(i)}`,
       role: UserRole.DOCTOR,
-      majorDoctor: majorDoctors[i % majorDoctors.length]
+      majorDoctorId: majorDoctors[i % majorDoctors.length].id
     });
     doctors.push({ id: d.id, fullName: d.fullName });
   }
@@ -174,10 +206,10 @@ async function seed() {
     await createPatientDetails(p.id);
   }
 
-  // 2) Medications
+  // 3) Medications
   const medications = await createMedications();
 
-  // 3) Prescriptions + Items (per patient)
+  // 4) Prescriptions + Items (per patient)
   const prescriptions: string[] = [];
   for (const patient of patients) {
     const count = randomInt(2, 4);
@@ -217,7 +249,7 @@ async function seed() {
     }
   }
 
-  // 4) Adherence logs
+  // 5) Adherence logs
   for (const pid of prescriptions) {
     const parent = await prisma.prescription.findUnique({ where: { id: pid } });
     if (!parent) continue;
@@ -245,7 +277,7 @@ async function seed() {
     }
   }
 
-  // 5) Alerts
+  // 6) Alerts
   for (const pid of prescriptions) {
     const parent = await prisma.prescription.findUnique({ where: { id: pid } });
     if (!parent) continue;

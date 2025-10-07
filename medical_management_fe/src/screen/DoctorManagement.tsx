@@ -31,12 +31,11 @@ import { MedicationsApi, MedicationDto } from "@/api/medications";
 import { UsersApi } from "@/api/user";
 import { patientApi } from "@/api/patient/patient.api";
 import { doctorApi } from "@/api/doctor/doctor.api";
+import { majorApi } from "@/api/major/major.api";
 import {
-  MajorDoctor,
   User as DoctorUser,
   CreateDoctorData,
   UpdateDoctorData,
-  getMajorDoctorName,
 } from "@/api/doctor/types";
 import {
   Pencil,
@@ -165,7 +164,7 @@ const DoctorManagement: React.FC = () => {
     fullName: "",
     phoneNumber: "",
     password: "",
-    majorDoctor: "TAM_THAN",
+    majorDoctor: "",
   });
   const [createDoctorErrors, setCreateDoctorErrors] = useState<{
     fullName?: string;
@@ -179,9 +178,23 @@ const DoctorManagement: React.FC = () => {
   const [updateDoctorForm, setUpdateDoctorForm] = useState<UpdateDoctorData>({
     fullName: "",
     phoneNumber: "",
-    majorDoctor: "TAM_THAN",
+    majorDoctor: "",
     status: "ACTIVE",
   });
+
+  // Query để lấy danh sách chuyên khoa
+  const { data: majorDoctorsData, isLoading: loadingMajorDoctors } = useQuery({
+    queryKey: ['major-doctors', 'active'],
+    queryFn: majorApi.getActiveMajors,
+    staleTime: 5 * 60 * 1000, // 5 phút
+  });
+
+  // Function để lấy tên chuyên khoa từ ID
+  const getMajorDoctorNameById = (majorDoctorId: string): string => {
+    if (!majorDoctorsData?.data) return "-";
+    const major = majorDoctorsData.data.find(m => m.id === majorDoctorId);
+    return major?.name || "-";
+  };
 
   // Validators
   const isValidPhone = (phone: string) => /^0[0-9]{9}$/.test(phone.trim());
@@ -570,7 +583,7 @@ const DoctorManagement: React.FC = () => {
     setUpdateDoctorForm({
       fullName: doctor.fullName,
       phoneNumber: doctor.phoneNumber,
-      majorDoctor: doctor.majorDoctor || "TAM_THAN",
+      majorDoctor: doctor.majorDoctor?.id || "",
       status: doctor.status,
     });
     setOpenEditDoctor({ open: true, doctor });
@@ -1273,7 +1286,7 @@ const DoctorManagement: React.FC = () => {
                                       </span>
                                       {p.createdByUser.majorDoctor && (
                                         <div className="text-xs text-muted-foreground">
-                                          {p.createdByUser.majorDoctor.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                                          {p.createdByUser.majorDoctor.name || p.createdByUser.majorDoctor.code}
                                         </div>
                                       )}
                                     </div>
@@ -2104,7 +2117,7 @@ const DoctorManagement: React.FC = () => {
                               fullName: "",
                               phoneNumber: "",
                               password: "",
-                              majorDoctor: "TAM_THAN",
+                              majorDoctor: "",
                             });
                             setCreateDoctorErrors({
                               fullName: "",
@@ -2224,31 +2237,24 @@ const DoctorManagement: React.FC = () => {
                                 onChange={(e) =>
                                   setCreateDoctorForm((s) => ({
                                     ...s,
-                                    majorDoctor: e.target.value as MajorDoctor,
+                                    majorDoctor: e.target.value,
                                   }))
                                 }
+                                disabled={loadingMajorDoctors}
                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                               >
-                                <option value="DINH_DUONG">Dinh dưỡng</option>
-                                <option value="TAM_THAN">Tâm thần</option>
-                                <option value="TIM_MACH">Tim mạch</option>
-                                <option value="NOI_TIET">Nội tiết</option>
-                                <option value="NGOAI_KHOA">Ngoại khoa</option>
-                                <option value="PHU_SAN">Phụ sản</option>
-                                <option value="NHI_KHOA">Nhi khoa</option>
-                                <option value="MAT">Mắt</option>
-                                <option value="TAI_MUI_HONG">
-                                  Tai mũi họng
-                                </option>
-                                <option value="DA_LIEU">Da liễu</option>
-                                <option value="XUONG_KHOP">Xương khớp</option>
-                                <option value="THAN_KINH">Thần kinh</option>
-                                <option value="UNG_BUOU">Ung bướu</option>
-                                <option value="HO_HAP">Hô hấp</option>
-                                <option value="TIEU_HOA">Tiêu hóa</option>
-                                <option value="THAN_TIET_NIEU">
-                                  Thận tiết niệu
-                                </option>
+                                {loadingMajorDoctors ? (
+                                  <option value="">Đang tải...</option>
+                                ) : (
+                                  <>
+                                    <option value="">Chọn chuyên khoa</option>
+                                    {majorDoctorsData?.data?.map((major) => (
+                                      <option key={major.id} value={major.id}>
+                                        {major.name}
+                                      </option>
+                                    ))}
+                                  </>
+                                )}
                               </select>
                             </div>
                           </div>
@@ -2346,7 +2352,7 @@ const DoctorManagement: React.FC = () => {
                               <TableCell className="py-4">
                                 <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 border border-blue-300/50">
                                   {doctor.majorDoctor
-                                    ? getMajorDoctorName(doctor.majorDoctor)
+                                    ? getMajorDoctorNameById(doctor.majorDoctor.id)
                                     : "-"}
                                 </span>
                               </TableCell>
@@ -2521,27 +2527,24 @@ const DoctorManagement: React.FC = () => {
                 onChange={(e) =>
                   setUpdateDoctorForm((s) => ({
                     ...s,
-                    majorDoctor: e.target.value as MajorDoctor,
+                    majorDoctor: e.target.value,
                   }))
                 }
+                disabled={loadingMajorDoctors}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <option value="TAM_THAN">Tâm thần</option>
-                <option value="TIM_MACH">Tim mạch</option>
-                <option value="NOI_TIET">Nội tiết</option>
-                <option value="NGOAI_KHOA">Ngoại khoa</option>
-                <option value="PHU_SAN">Phụ sản</option>
-                <option value="NHI_KHOA">Nhi khoa</option>
-                <option value="MAT">Mắt</option>
-                <option value="TAI_MUI_HONG">Tai mũi họng</option>
-                <option value="DA_LIEU">Da liễu</option>
-                <option value="XUONG_KHOP">Xương khớp</option>
-                <option value="THAN_KINH">Thần kinh</option>
-                <option value="UNG_BUOU">Ung bướu</option>
-                <option value="HO_HAP">Hô hấp</option>
-                <option value="TIEU_HOA">Tiêu hóa</option>
-                <option value="THAN_TIET_NIEU">Thận tiết niệu</option>
-                <option value="DINH_DUONG">Dinh dưỡng</option>
+                {loadingMajorDoctors ? (
+                  <option value="">Đang tải...</option>
+                ) : (
+                  <>
+                    <option value="">Chọn chuyên khoa</option>
+                    {majorDoctorsData?.data?.map((major) => (
+                      <option key={major.id} value={major.id}>
+                        {major.name}
+                      </option>
+                    ))}
+                  </>
+                )}
               </select>
             </div>
             <div className="grid gap-2">

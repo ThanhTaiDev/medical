@@ -41,13 +41,23 @@ export const getMajorDoctorName = (major: MajorDoctor): string => {
   return majorNames[major] || major;
 };
 
+export interface MajorDoctorTable {
+  id: string;
+  code: string;
+  name: string;
+  nameEn?: string;
+  description?: string;
+  isActive: boolean;
+  sortOrder: number;
+}
+
 export interface User {
   id: string;
   phoneNumber: string;
   fullName: string;
   role: UserRole;
   status: "ACTIVE" | "INACTIVE" | "BLOCKED";
-  majorDoctor?: MajorDoctor;
+  majorDoctor?: MajorDoctorTable; // Changed to object with relation
 }
 
 // Alias for doctor user type
@@ -111,13 +121,13 @@ export interface DoctorListResponse {
 export interface CreateDoctorData {
   phoneNumber: string;
   fullName: string;
-  majorDoctor: MajorDoctor;
+  majorDoctor: string; // ID of MajorDoctorTable
   password: string;
 }
 
 export interface UpdateDoctorData {
   fullName?: string;
   phoneNumber?: string;
-  majorDoctor?: MajorDoctor;
+  majorDoctor?: string; // ID of MajorDoctorTable
   status?: "ACTIVE" | "INACTIVE" | "BLOCKED";
 }

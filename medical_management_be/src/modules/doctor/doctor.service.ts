@@ -1055,9 +1055,11 @@ export class DoctorService {
       throw new UnprocessableEntityException('Phone number already exists');
     }
 
-    // Validate majorDoctor enum
-    const validMajors = Object.values(MajorDoctor);
-    if (!validMajors.includes(body.majorDoctor as MajorDoctor)) {
+    // Validate majorDoctor exists
+    const majorDoctorExists = await this.databaseService.client.majorDoctorTable.findUnique({
+      where: { id: body.majorDoctor }
+    });
+    if (!majorDoctorExists) {
       throw new UnprocessableEntityException('Invalid major doctor');
     }
 
@@ -1069,7 +1071,7 @@ export class DoctorService {
         phoneNumber: body.phoneNumber,
         password: hashedPassword,
         role: UserRole.DOCTOR,
-        majorDoctor: body.majorDoctor as MajorDoctor,
+        majorDoctorId: body.majorDoctor,
         status: UserStatus.ACTIVE
       }
     });
@@ -1090,8 +1092,10 @@ export class DoctorService {
 
     // Validate majorDoctor if provided
     if (body.majorDoctor) {
-      const validMajors = Object.values(MajorDoctor);
-      if (!validMajors.includes(body.majorDoctor as MajorDoctor)) {
+      const majorDoctorExists = await this.databaseService.client.majorDoctorTable.findUnique({
+        where: { id: body.majorDoctor }
+      });
+      if (!majorDoctorExists) {
         throw new UnprocessableEntityException('Invalid major doctor');
       }
     }
@@ -1119,7 +1123,7 @@ export class DoctorService {
       data: {
         fullName: body.fullName,
         phoneNumber: body.phoneNumber,
-        majorDoctor: body.majorDoctor as MajorDoctor,
+        majorDoctorId: body.majorDoctor,
         status: body.status as UserStatus
       }
     });
