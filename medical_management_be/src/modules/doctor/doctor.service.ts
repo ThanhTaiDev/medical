@@ -153,8 +153,15 @@ export class DoctorService {
       role: 'PATIENT',
       deletedAt: null,
       createdBy: doctorId, // Lấy tất cả bệnh nhân được tạo bởi doctor này
-      ...(q ? { fullName: { contains: q, mode: 'insensitive' } } : {})
     };
+    
+    // Add search functionality for both name and phone number
+    if (q && q.trim()) {
+      where.OR = [
+        { fullName: { contains: q, mode: 'insensitive' } },
+        { phoneNumber: { contains: q } }
+      ];
+    }
     
     const page = params?.page && params.page > 0 ? params.page : 1;
     const limit = params?.limit && params.limit > 0 ? params.limit : 20;

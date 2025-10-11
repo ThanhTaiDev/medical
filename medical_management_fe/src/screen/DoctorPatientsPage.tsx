@@ -988,7 +988,7 @@ export default function DoctorPatientsPage() {
                 setLimit(parseInt(e.target.value));
               }}
             >
-              {[8, 12, 16, 24].map((n) => (
+              {[12, 16, 24].map((n) => (
                 <option key={n} value={n}>
                   {n}/trang
                 </option>
