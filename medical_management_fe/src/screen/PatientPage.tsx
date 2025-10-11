@@ -2306,7 +2306,7 @@ export default function PatientPage() {
                                       ) : (
                                         <CheckCircle className="h-4 w-4 mr-2" />
                                       )}
-                                      Đánh dấu đã xử lý
+                                      Đánh dấu đã đọc
                                     </Button>
                                     <span className="text-xs text-muted-foreground">
                                       Nhấn để xác nhận bạn đã đọc thông báo này

@@ -30,6 +30,20 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 
+// Helper function to calculate age from birth date
+const calculateAge = (birthDate: string): number => {
+  if (!birthDate) return 0;
+  const birth = new Date(birthDate);
+  const today = new Date();
+  const age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  
+  // Calculate actual age considering month and day
+  return monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate()) 
+    ? age - 1 
+    : age;
+};
+
 // Zod schema for create patient form
 export const createPatientSchema = z.object({
   fullName: z
@@ -56,7 +70,27 @@ export const createPatientSchema = z.object({
     }),
   profile: z.object({
     gender: z.enum(["MALE", "FEMALE", "OTHER"]).optional(),
-    birthDate: z.string().optional(),
+    birthDate: z.string().optional().refine((val) => {
+      if (!val) return true; // Optional field
+      
+      const birthDate = new Date(val);
+      const today = new Date();
+      const age = calculateAge(val);
+      
+      // Check if birth date is in the future
+      if (birthDate > today) {
+        return false;
+      }
+      
+      // Check if age is valid (not negative and not too old)
+      if (age < 0 || age > 120) {
+        return false;
+      }
+      
+      return true;
+    }, {
+      message: "Ngày sinh không hợp lệ. Vui lòng kiểm tra lại ngày sinh."
+    }),
     address: z.string().optional()
   }).optional()
 });
@@ -209,8 +243,12 @@ export function CreatePatientDialog({ isOpen, onClose, onCreateSuccess, defaultR
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className={isHistoryStep ? "sm:max-w-[1000px]" : "sm:max-w-[720px]"}>
+    <Dialog open={isOpen} onOpenChange={isHistoryStep ? () => {} : onClose}>
+      <DialogContent 
+        className={isHistoryStep ? "sm:max-w-[1000px]" : "sm:max-w-[720px]"} 
+        onPointerDownOutside={isHistoryStep ? (e) => e.preventDefault() : undefined}
+        onEscapeKeyDown={isHistoryStep ? (e) => e.preventDefault() : undefined}
+      >
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">{isHistoryStep ? 'Tiền sử bệnh án' : 'Thêm bệnh nhân'}</DialogTitle>
           <DialogDescription>
@@ -386,6 +424,7 @@ export function CreatePatientDialog({ isOpen, onClose, onCreateSuccess, defaultR
                         <FormControl>
                           <Input 
                             type="date"
+                            max={new Date().toISOString().split('T')[0]} // Prevent future dates
                             className="transition-all duration-200 focus:ring-2 focus:ring-emerald-500/20"
                             {...field} 
                           />
@@ -403,13 +442,19 @@ export function CreatePatientDialog({ isOpen, onClose, onCreateSuccess, defaultR
                           const birthDateStr = form.watch('profile.birthDate');
                           if (!birthDateStr) return '0 tuổi';
                           
+                          const age = calculateAge(birthDateStr);
                           const birthDate = new Date(birthDateStr);
                           const today = new Date();
-                          let age = today.getFullYear() - birthDate.getFullYear();
-                          const monthDiff = today.getMonth() - birthDate.getMonth();
-                          if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-                            age--;
+                          
+                          // Show validation feedback
+                          if (birthDate > today) {
+                            return <span className="text-red-500">Ngày sinh không được ở tương lai</span>;
+                          } else if (age < 0) {
+                            return <span className="text-red-500">Ngày sinh không hợp lệ</span>;
+                          } else if (age > 120) {
+                            return <span className="text-red-500">Tuổi không được vượt quá 120</span>;
                           }
+                          
                           return `${age} tuổi`;
                         })()}
                       </div>
@@ -479,7 +524,7 @@ export function CreatePatientDialog({ isOpen, onClose, onCreateSuccess, defaultR
                         <div className='text-xs text-muted-foreground'>Tuổi</div>
                         <div className='text-sm text-foreground'>
                           {createdPatientInfo.birthDate 
-                            ? `${new Date().getFullYear() - new Date(createdPatientInfo.birthDate).getFullYear()} tuổi`
+                            ? `${calculateAge(createdPatientInfo.birthDate)} tuổi`
                             : '—'
                           }
                         </div>
@@ -662,12 +707,27 @@ export function CreatePatientDialog({ isOpen, onClose, onCreateSuccess, defaultR
             >
               Bỏ qua
             </Button>
-            <Button 
-              onClick={submitHistory} 
-              className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-sm transition-all duration-200 hover:shadow-md hover:from-emerald-600 hover:to-teal-600"
-            >
-              Lưu tiền sử
-            </Button>
+            {/* Only show "Lưu tiền sử" button if there's any medical history data */}
+            {(() => {
+              const hasHistoryData = 
+                historyForm.conditions.trim() ||
+                historyForm.allergies.trim() ||
+                historyForm.surgeries.trim() ||
+                historyForm.familyHistory?.trim() ||
+                historyForm.lifestyle?.trim() ||
+                historyForm.currentMedications.trim() ||
+                historyForm.notes?.trim() ||
+                customFields.some(field => field.key.trim() && field.value.trim());
+              
+              return hasHistoryData ? (
+                <Button 
+                  onClick={submitHistory} 
+                  className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-sm transition-all duration-200 hover:shadow-md hover:from-emerald-600 hover:to-teal-600"
+                >
+                  Lưu tiền sử
+                </Button>
+              ) : null;
+            })()}
             </DialogFooter>
           </>
         )}

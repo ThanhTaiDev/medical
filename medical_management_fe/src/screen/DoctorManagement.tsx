@@ -1850,18 +1850,42 @@ const DoctorManagement: React.FC = () => {
                     </div>
                   </div>
                   <DialogFooter>
-                    <Button
-                      onClick={() =>
-                        selectedPatientId &&
-                        updateHistoryMutation.mutate({
-                          id: selectedPatientId,
-                          dto: historyForm,
-                        })
-                      }
-                      isLoading={updateHistoryMutation.isPending}
-                    >
-                      Lưu
-                    </Button>
+                    {/* Only show "Lưu" button if there are changes */}
+                    {(() => {
+                      const initialForm = {
+                        conditions: [],
+                        allergies: [],
+                        surgeries: [],
+                        familyHistory: "",
+                        lifestyle: "",
+                        currentMedications: [],
+                        notes: "",
+                      };
+                      
+                      const hasChanges = 
+                        JSON.stringify(historyForm.conditions) !== JSON.stringify(initialForm.conditions) ||
+                        JSON.stringify(historyForm.allergies) !== JSON.stringify(initialForm.allergies) ||
+                        JSON.stringify(historyForm.surgeries) !== JSON.stringify(initialForm.surgeries) ||
+                        historyForm.familyHistory !== initialForm.familyHistory ||
+                        historyForm.lifestyle !== initialForm.lifestyle ||
+                        JSON.stringify(historyForm.currentMedications) !== JSON.stringify(initialForm.currentMedications) ||
+                        historyForm.notes !== initialForm.notes;
+                      
+                      return hasChanges ? (
+                        <Button
+                          onClick={() =>
+                            selectedPatientId &&
+                            updateHistoryMutation.mutate({
+                              id: selectedPatientId,
+                              dto: historyForm,
+                            })
+                          }
+                          isLoading={updateHistoryMutation.isPending}
+                        >
+                          Lưu
+                        </Button>
+                      ) : null;
+                    })()}
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -2779,7 +2803,7 @@ const DoctorManagement: React.FC = () => {
 //       onClick={() => mutation.mutate()}
 //       isLoading={mutation.isPending}
 //     >
-//       Đánh dấu đã xử lý
+//       Đánh dấu đã đọc
 //     </Button>
 //   );
 // }
