@@ -753,45 +753,6 @@ export default function PatientPage() {
                     Thông tin tổng quan về tình trạng điều trị của bạn
                   </p>
                 </div>
-                {/* Debug buttons - remove in production */}
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      localStorage.removeItem("last_shown_alert_ids");
-                      localStorage.removeItem(
-                        "warning_dialog_dismissed_" +
-                          new Date().toISOString().slice(0, 10)
-                      );
-                      toast.success(
-                        "Đã reset thông báo! Refresh trang để test lại."
-                      );
-                    }}
-                    className="text-xs"
-                  >
-                    Reset Notifications
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      console.log("=== MANUAL DEBUG INFO ===");
-                      console.log("Role:", role);
-                      console.log("ovAlerts:", ovAlerts);
-                      console.log("loadingOvAlerts:", loadingOvAlerts);
-                      console.log("firstWarningDialog:", firstWarningDialog);
-                      console.log(
-                        "localStorage keys:",
-                        Object.keys(localStorage)
-                      );
-                      console.log("=== END MANUAL DEBUG ===");
-                    }}
-                    className="text-xs"
-                  >
-                    Debug Info
-                  </Button>
-                </div>
               </div>
 
               {/* Stats Cards */}
@@ -1068,7 +1029,7 @@ export default function PatientPage() {
                                       }
                                       className="text-xs"
                                     >
-                                      {translateStatus(r.status)}
+                                      {getStatusText(r.status)}
                                     </Badge>
                                   </div>
                                 </div>
@@ -1735,7 +1696,7 @@ export default function PatientPage() {
                                 </Button>
                               </div>
                               <p className="text-xs text-muted-foreground mt-2">
-                                Trạng thái gửi: TAKEN cùng thời gian hiện tại.
+                                Trạng thái gửi: {getStatusText("TAKEN")} cùng thời gian hiện tại.
                               </p>
                             </CardContent>
                           </Card>
@@ -1772,7 +1733,7 @@ export default function PatientPage() {
                                       : "bg-zinc-100 text-zinc-700"
                                   }`}
                                 >
-                                  {h.status}
+                                  {getStatusText(h.status)}
                                 </span>
                                 {h.doctor?.fullName && (
                                   <span className="text-xs text-muted-foreground">
@@ -2048,7 +2009,7 @@ export default function PatientPage() {
                                     }
                                     className="text-xs"
                                   >
-                                    {translateStatus(r.status)}
+                                    {getStatusText(r.status)}
                                   </Badge>
                                 </div>
                               </div>
@@ -2426,11 +2387,7 @@ export default function PatientPage() {
                                           : "bg-zinc-100 text-zinc-700"
                                       } inline-flex px-2 py-0.5 rounded-md text-[11px] font-medium`}
                                     >
-                                      {log.status === "TAKEN"
-                                        ? "Đã uống"
-                                        : log.status === "MISSED"
-                                        ? "Bỏ liều"
-                                        : "Bỏ qua"}
+                                      {getStatusText(log.status)}
                                     </span>
                                     {log.notes && !log.notes.includes("-") && (
                                       <span className="text-[11px] text-muted-foreground">
