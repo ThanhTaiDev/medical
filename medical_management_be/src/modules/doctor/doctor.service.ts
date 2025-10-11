@@ -167,6 +167,30 @@ export class DoctorService {
         include: { 
           profile: true,
           medicalHistory: true,
+          prescriptionsAsPatient: {
+            where: {
+              doctorId: doctorId,
+              status: 'ACTIVE'
+            },
+            include: {
+              items: {
+                include: {
+                  medication: {
+                    select: {
+                      id: true,
+                      name: true,
+                      strength: true,
+                      unit: true,
+                      form: true
+                    }
+                  }
+                }
+              }
+            },
+            orderBy: {
+              createdAt: 'desc'
+            }
+          },
           createdByUser: {
             select: {
               id: true,
