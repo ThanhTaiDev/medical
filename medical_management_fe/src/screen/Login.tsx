@@ -38,7 +38,7 @@ export default function Login() {
       password?: string;
     } = {};
 
-    const phoneRegex = /^0[0-9]{9}$/;
+    const phoneRegex = /^0\d{9}$/;
     if (!formData.phoneNumber) {
       newErrors.phoneNumber = "Phone number is required";
     } else if (!phoneRegex.test(formData.phoneNumber)) {
@@ -99,7 +99,14 @@ export default function Login() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    
+    // Filter phone number input to only allow digits
+    let filteredValue = value;
+    if (name === "phoneNumber") {
+      filteredValue = value.replace(/[^0-9]/g, "");
+    }
+    
+    setFormData((prev) => ({ ...prev, [name]: filteredValue }));
 
     if (errors[name as keyof typeof errors]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
@@ -142,7 +149,7 @@ export default function Login() {
               <div className="flex items-center px-4 pb-2">
                 <i className="fas fa-phone text-gray-400 mr-2"></i>
                 <input
-                  type="text"
+                  type="tel"
                   id="phoneNumber"
                   name="phoneNumber"
                   value={formData.phoneNumber}
@@ -150,6 +157,9 @@ export default function Login() {
                   className={`w-full py-2 outline-none bg-transparent focus:outline-none focus:ring-0 ${errors.phoneNumber ? "border-red-500" : ""
                     }`}
                   placeholder="0xxxxxxxxx"
+                  pattern="[0-9]*"
+                  inputMode="numeric"
+                  maxLength={10}
                   required
                 />
               </div>
