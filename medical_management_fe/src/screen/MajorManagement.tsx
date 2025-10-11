@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Search, Edit, Trash2, Filter, RefreshCw, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { Plus, Search, Edit, Trash2, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { majorApi, MajorDoctor } from "@/api/major/major.api";
 import { createMajorSchema, updateMajorSchema, CreateMajorFormData, UpdateMajorFormData } from "@/schemas/major.schema";
@@ -74,14 +74,12 @@ const MajorManagement: React.FC = () => {
   const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
   const [editErrors, setEditErrors] = useState<Record<string, string>>({});
 
-  // Query để lấy danh sách chuyên khoa
+  // Query để lấy danh sách chuyên khoa (không filter)
   const { data: majorsData, isLoading, error, refetch } = useQuery({
-    queryKey: ['major-doctors', searchTerm, statusFilter, currentPage, pageSize],
+    queryKey: ['major-doctors'],
     queryFn: () => majorApi.getMajors({
-      page: currentPage,
-      limit: pageSize,
-      search: searchTerm || undefined,
-      isActive: statusFilter === "all" ? undefined : statusFilter === "active"
+      page: 1,
+      limit: 100, // Lấy tất cả để filter trên frontend
     }),
   });
 
@@ -198,17 +196,30 @@ const MajorManagement: React.FC = () => {
     }
   };
 
-  // Xử lý tìm kiếm
-  const handleSearch = () => {
-    setCurrentPage(1);
-    refetch();
+  // Frontend filtering logic
+  const getFilteredMajors = () => {
+    if (!majorsData?.data) return [];
+    
+    let filtered = majorsData.data;
+    
+    // Filter by search term
+    if (searchTerm.trim()) {
+      filtered = filtered.filter((major: MajorDoctor) =>
+        major.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        major.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (major.nameEn && major.nameEn.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+    }
+    
+    // Filter by status
+    if (statusFilter !== "all") {
+      const isActive = statusFilter === "active";
+      filtered = filtered.filter((major: MajorDoctor) => major.isActive === isActive);
+    }
+    
+    return filtered;
   };
 
-  // Xử lý lọc
-  const handleFilter = () => {
-    setCurrentPage(1);
-    refetch();
-  };
 
   // Xử lý mở dialog tạo mới
   const handleOpenCreateDialog = () => {
@@ -264,10 +275,15 @@ const MajorManagement: React.FC = () => {
     }
   };
 
-  // Lấy dữ liệu từ response
-  const majors = majorsData?.data || [];
-  const totalItems = majorsData?.pagination?.total || 0;
-  const totalPages = majorsData?.pagination?.totalPages || Math.ceil(totalItems / pageSize);
+  // Lấy dữ liệu đã filter và phân trang
+  const filteredMajors = getFilteredMajors();
+  const totalItems = filteredMajors.length;
+  const totalPages = Math.ceil(totalItems / pageSize);
+  
+  // Pagination logic
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const majors = filteredMajors.slice(startIndex, endIndex);
 
   return (
     <div className="space-y-6">
@@ -297,13 +313,13 @@ const MajorManagement: React.FC = () => {
             </CardTitle>
             <div className="h-8 w-8 rounded-full bg-blue-200 flex items-center justify-center">
               <span className="text-blue-700 font-bold text-sm">
-                {totalItems}
+                {majorsData?.data?.length || 0}
               </span>
             </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-800">
-              {totalItems}
+              {majorsData?.data?.length || 0}
             </div>
             <p className="text-xs text-blue-600 mt-1">
               Chuyên khoa đã đăng ký
@@ -318,13 +334,13 @@ const MajorManagement: React.FC = () => {
             </CardTitle>
             <div className="h-8 w-8 rounded-full bg-green-200 flex items-center justify-center">
               <span className="text-green-700 font-bold text-sm">
-                {majors.filter((m: MajorDoctor) => m.isActive).length}
+                {filteredMajors.filter((m: MajorDoctor) => m.isActive).length}
               </span>
             </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-800">
-              {majors.filter((m: MajorDoctor) => m.isActive).length}
+              {filteredMajors.filter((m: MajorDoctor) => m.isActive).length}
             </div>
             <p className="text-xs text-green-600 mt-1">
               Chuyên khoa đang hoạt động
@@ -339,13 +355,13 @@ const MajorManagement: React.FC = () => {
             </CardTitle>
             <div className="h-8 w-8 rounded-full bg-orange-200 flex items-center justify-center">
               <span className="text-orange-700 font-bold text-sm">
-                {majors.filter((m: MajorDoctor) => !m.isActive).length}
+                {filteredMajors.filter((m: MajorDoctor) => !m.isActive).length}
               </span>
             </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-800">
-              {majors.filter((m: MajorDoctor) => !m.isActive).length}
+              {filteredMajors.filter((m: MajorDoctor) => !m.isActive).length}
             </div>
             <p className="text-xs text-orange-600 mt-1">
               Chuyên khoa tạm dừng
@@ -371,13 +387,18 @@ const MajorManagement: React.FC = () => {
                 placeholder="Tìm kiếm theo tên chuyên khoa..."
                 className="mt-1"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1); // Reset to first page when searching
+                }}
               />
             </div>
             <div className="sm:w-48">
               <Label htmlFor="status">Trạng thái</Label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select value={statusFilter} onValueChange={(value) => {
+                setStatusFilter(value);
+                setCurrentPage(1); // Reset to first page when filtering
+              }}>
                 <SelectTrigger className="mt-1">
                   <SelectValue placeholder="Tất cả trạng thái" />
                 </SelectTrigger>
@@ -387,16 +408,6 @@ const MajorManagement: React.FC = () => {
                   <SelectItem value="inactive">Tạm dừng</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div className="flex items-end gap-2">
-              <Button variant="outline" onClick={handleFilter} className="w-full sm:w-auto">
-                <Filter className="w-4 h-4 mr-2" />
-                Lọc
-              </Button>
-              <Button variant="outline" onClick={() => refetch()} className="w-full sm:w-auto">
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Làm mới
-              </Button>
             </div>
           </div>
         </CardContent>
@@ -417,15 +428,13 @@ const MajorManagement: React.FC = () => {
             <div className="flex flex-col items-center justify-center py-8">
               <div className="text-red-500 mb-2">Có lỗi xảy ra khi tải dữ liệu</div>
               <Button variant="outline" onClick={() => refetch()}>
-                <RefreshCw className="w-4 h-4 mr-2" />
                 Thử lại
               </Button>
             </div>
-          ) : majors.length === 0 ? (
+          ) : filteredMajors.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8">
               <div className="text-muted-foreground mb-2">Không có dữ liệu</div>
               <Button variant="outline" onClick={() => refetch()}>
-                <RefreshCw className="w-4 h-4 mr-2" />
                 Làm mới
               </Button>
             </div>
