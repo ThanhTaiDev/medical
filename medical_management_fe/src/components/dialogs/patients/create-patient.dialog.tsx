@@ -273,17 +273,15 @@ export function CreatePatientDialog({ isOpen, onClose, onCreateSuccess, defaultR
                 name="fullName"
                 render={({ field }) => (
                   <FormItem>
-                        <div className="flex items-center justify-between">
-                          <FormLabel className="text-sm font-medium">Họ và tên <span className="text-red-500">*</span></FormLabel>
-                      <FormMessage />
-                    </div>
+                    <FormLabel className="text-sm font-medium">Họ và tên <span className="text-red-500">*</span></FormLabel>
                     <FormControl>
-                          <Input 
-                            placeholder="Nhập họ và tên đầy đủ" 
-                            className="transition-all duration-200 focus:ring-2 focus:ring-blue-500/20"
-                            {...field} 
-                          />
+                      <Input 
+                        placeholder="Nhập họ và tên đầy đủ" 
+                        className="transition-all duration-200 focus:ring-2 focus:ring-blue-500/20"
+                        {...field} 
+                      />
                     </FormControl>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -293,23 +291,21 @@ export function CreatePatientDialog({ isOpen, onClose, onCreateSuccess, defaultR
                 name="phoneNumber"
                 render={({ field }) => (
                   <FormItem>
-                        <div className="flex items-center justify-between">
-                          <FormLabel className="text-sm font-medium">Số điện thoại <span className="text-red-500">*</span></FormLabel>
-                      <FormMessage />
-                    </div>
+                    <FormLabel className="text-sm font-medium">Số điện thoại <span className="text-red-500">*</span></FormLabel>
                     <FormControl>
-                          <Input 
-                            type="tel" 
-                            placeholder="Nhập số điện thoại 10 chữ số" 
-                            className="transition-all duration-200 focus:ring-2 focus:ring-blue-500/20"
-                            maxLength={10}
-                            {...field}
-                            onChange={(e) => {
-                              const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                              field.onChange(value);
-                            }}
-                          />
+                      <Input 
+                        type="tel" 
+                        placeholder="Nhập số điện thoại 10 chữ số" 
+                        className="transition-all duration-200 focus:ring-2 focus:ring-blue-500/20"
+                        maxLength={10}
+                        {...field}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                          field.onChange(value);
+                        }}
+                      />
                     </FormControl>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -319,23 +315,20 @@ export function CreatePatientDialog({ isOpen, onClose, onCreateSuccess, defaultR
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                        <div className="flex items-center justify-between">
-                          <FormLabel className="text-sm font-medium">Mật khẩu <span className="text-red-500">*</span></FormLabel>
-                      <FormMessage />
-                    </div>
+                    <FormLabel className="text-sm font-medium">Mật khẩu <span className="text-red-500">*</span></FormLabel>
                     <FormControl>
                       <div className="relative">
                         <Input 
                           type={showPassword ? "text" : "password"} 
-                              placeholder="Nhập mật khẩu (tối thiểu 6 ký tự)"
-                              className="pr-12 transition-all duration-200 focus:ring-2 focus:ring-blue-500/20"
+                          placeholder="Nhập mật khẩu (tối thiểu 6 ký tự)"
+                          className="pr-12 transition-all duration-200 focus:ring-2 focus:ring-blue-500/20"
                           {...field}
                         />
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
-                              className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 rounded-md hover:bg-accent/50"
+                          className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 rounded-md hover:bg-accent/50"
                           onClick={togglePasswordVisibility}
                           aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
                         >
@@ -347,6 +340,7 @@ export function CreatePatientDialog({ isOpen, onClose, onCreateSuccess, defaultR
                         </Button>
                       </div>
                     </FormControl>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -357,13 +351,10 @@ export function CreatePatientDialog({ isOpen, onClose, onCreateSuccess, defaultR
                   name="role"
                   render={({ field }) => (
                     <FormItem>
-                          <div className="flex items-center justify-between">
-                            <FormLabel className="text-sm font-medium">Loại tài khoản <span className="text-red-500">*</span></FormLabel>
-                        <FormMessage />
-                      </div>
+                      <FormLabel className="text-sm font-medium">Loại tài khoản <span className="text-red-500">*</span></FormLabel>
                       <FormControl>
                         <Select value={field.value} onValueChange={field.onChange}>
-                              <SelectTrigger className="transition-all duration-200 focus:ring-2 focus:ring-blue-500/20">
+                          <SelectTrigger className="transition-all duration-200 focus:ring-2 focus:ring-blue-500/20">
                             <SelectValue placeholder="Chọn vai trò" />
                           </SelectTrigger>
                           <SelectContent>
@@ -373,6 +364,7 @@ export function CreatePatientDialog({ isOpen, onClose, onCreateSuccess, defaultR
                           </SelectContent>
                         </Select>
                       </FormControl>
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
@@ -392,10 +384,7 @@ export function CreatePatientDialog({ isOpen, onClose, onCreateSuccess, defaultR
                     name="profile.gender"
                     render={({ field }) => (
                       <FormItem>
-                        <div className="flex items-center justify-between">
-                          <FormLabel className="text-sm font-medium">Giới tính</FormLabel>
-                          <FormMessage />
-                        </div>
+                        <FormLabel className="text-sm font-medium">Giới tính</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger className="transition-all duration-200 focus:ring-2 focus:ring-emerald-500/20">
@@ -408,6 +397,7 @@ export function CreatePatientDialog({ isOpen, onClose, onCreateSuccess, defaultR
                             <SelectItem value="OTHER">Khác</SelectItem>
                           </SelectContent>
                         </Select>
+                        <FormMessage />
                       </FormItem>
                     )}
                   />
@@ -417,10 +407,7 @@ export function CreatePatientDialog({ isOpen, onClose, onCreateSuccess, defaultR
                     name="profile.birthDate"
                     render={({ field }) => (
                       <FormItem>
-                        <div className="flex items-center justify-between">
-                          <FormLabel className="text-sm font-medium">Ngày sinh</FormLabel>
-                          <FormMessage />
-                        </div>
+                        <FormLabel className="text-sm font-medium">Ngày sinh</FormLabel>
                         <FormControl>
                           <Input 
                             type="date"
@@ -429,6 +416,7 @@ export function CreatePatientDialog({ isOpen, onClose, onCreateSuccess, defaultR
                             {...field} 
                           />
                         </FormControl>
+                        <FormMessage />
                       </FormItem>
                     )}
                   />
@@ -466,10 +454,7 @@ export function CreatePatientDialog({ isOpen, onClose, onCreateSuccess, defaultR
                     name="profile.address"
                     render={({ field }) => (
                       <FormItem>
-                        <div className="flex items-center justify-between">
-                          <FormLabel className="text-sm font-medium">Địa chỉ</FormLabel>
-                          <FormMessage />
-                        </div>
+                        <FormLabel className="text-sm font-medium">Địa chỉ</FormLabel>
                         <FormControl>
                           <Input 
                             placeholder="Nhập địa chỉ" 
@@ -477,6 +462,7 @@ export function CreatePatientDialog({ isOpen, onClose, onCreateSuccess, defaultR
                             {...field} 
                           />
                         </FormControl>
+                        <FormMessage />
                       </FormItem>
                     )}
                   />

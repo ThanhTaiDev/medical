@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   DoctorApi,
@@ -185,10 +185,12 @@ const DoctorManagement: React.FC = () => {
     fullName?: string;
     phoneNumber?: string;
     password?: string;
+    majorDoctor?: string;
   }>({
     fullName: "",
     phoneNumber: "",
     password: "",
+    majorDoctor: "",
   });
   const [updateDoctorForm, setUpdateDoctorForm] = useState<UpdateDoctorData>({
     fullName: "",
@@ -203,6 +205,16 @@ const DoctorManagement: React.FC = () => {
     queryFn: majorApi.getActiveMajors,
     staleTime: 5 * 60 * 1000, // 5 phút
   });
+
+  // Set default major when data is loaded and form is empty
+  useEffect(() => {
+    if (majorDoctorsData?.data && majorDoctorsData.data.length > 0 && !createDoctorForm.majorDoctor) {
+      setCreateDoctorForm(prev => ({
+        ...prev,
+        majorDoctor: majorDoctorsData.data[0].id
+      }));
+    }
+  }, [majorDoctorsData, createDoctorForm.majorDoctor]);
 
   // Function để lấy tên chuyên khoa từ ID
   const getMajorDoctorNameById = (majorDoctorId: string): string => {
@@ -381,12 +393,13 @@ const DoctorManagement: React.FC = () => {
         fullName: "",
         phoneNumber: "",
         password: "",
-        majorDoctor: "TAM_THAN",
+        majorDoctor: majorDoctorsData?.data?.[0]?.id || "",
       });
       setCreateDoctorErrors({
         fullName: "",
         phoneNumber: "",
         password: "",
+        majorDoctor: "",
       });
       toast.success("Tạo bác sĩ thành công", { position: "top-center" });
     },
@@ -584,6 +597,7 @@ const DoctorManagement: React.FC = () => {
       fullName: "",
       phoneNumber: "",
       password: "",
+      majorDoctor: "",
     });
 
     let hasError = false;
@@ -608,6 +622,10 @@ const DoctorManagement: React.FC = () => {
       hasError = true;
     } else if (createDoctorForm.password.length < 6) {
       newErrors.password = "Mật khẩu phải có ít nhất 6 ký tự";
+      hasError = true;
+    }
+    if (!createDoctorForm.majorDoctor?.trim()) {
+      newErrors.majorDoctor = "Vui lòng chọn chuyên khoa";
       hasError = true;
     }
 
@@ -1251,7 +1269,11 @@ const DoctorManagement: React.FC = () => {
                             }))
                           }
                           disabled={loadingMajorDoctors}
-                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+                            createDoctorErrors.majorDoctor
+                              ? "border-red-500 focus:border-red-500"
+                              : ""
+                          }`}
                         >
                           {loadingMajorDoctors ? (
                             <option value="">Đang tải...</option>
@@ -1265,6 +1287,11 @@ const DoctorManagement: React.FC = () => {
                             </>
                           )}
                         </select>
+                        {createDoctorErrors.majorDoctor && (
+                          <p className="text-sm text-red-500 mt-1">
+                            {createDoctorErrors.majorDoctor}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <DialogFooter>
