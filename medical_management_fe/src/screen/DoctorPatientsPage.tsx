@@ -455,14 +455,18 @@ export default function DoctorPatientsPage() {
   // Reset form when patient changes
   useEffect(() => {
     if (historyPatient) {
+      console.log('DEBUG Reset Form: historyPatient =', historyPatient);
+      console.log('DEBUG Reset Form: userInfo.gender =', historyPatient.userInfo?.gender);
+      console.log('DEBUG Reset Form: profile.gender =', historyPatient.profile?.gender);
+      
+      const genderValue = historyPatient.userInfo?.gender || historyPatient.profile?.gender || "";
+      console.log('DEBUG Reset Form: Final gender value =', genderValue);
+      
       basicInfoForm.reset({
         fullName: historyPatient.fullName || "",
         phoneNumber: historyPatient.phoneNumber || "",
         password: "",
-        gender:
-          historyPatient.userInfo?.gender ||
-          historyPatient.profile?.gender ||
-          "",
+        gender: genderValue,
         birthYear:
           historyPatient.userInfo?.birthYear?.toString() ||
           (historyPatient.profile?.birthDate
@@ -483,14 +487,18 @@ export default function DoctorPatientsPage() {
   // Reset form after successful update to show new values
   useEffect(() => {
     if (updateBasicInfoMutation.isSuccess && historyPatient) {
+      console.log('DEBUG Reset After Update: historyPatient =', historyPatient);
+      console.log('DEBUG Reset After Update: userInfo.gender =', historyPatient.userInfo?.gender);
+      console.log('DEBUG Reset After Update: profile.gender =', historyPatient.profile?.gender);
+      
+      const genderValue = historyPatient.userInfo?.gender || historyPatient.profile?.gender || "";
+      console.log('DEBUG Reset After Update: Final gender value =', genderValue);
+      
       basicInfoForm.reset({
         fullName: historyPatient.fullName || "",
         phoneNumber: historyPatient.phoneNumber || "",
         password: "",
-        gender:
-          historyPatient.userInfo?.gender ||
-          historyPatient.profile?.gender ||
-          "",
+        gender: genderValue,
         birthYear:
           historyPatient.userInfo?.birthYear?.toString() ||
           (historyPatient.profile?.birthDate
@@ -1493,10 +1501,15 @@ export default function DoctorPatientsPage() {
                           Giới tính
                         </label>
                         <Select
-                          value={basicInfoForm.watch("gender")}
-                          onValueChange={(value) =>
-                            basicInfoForm.setValue("gender", value)
-                          }
+                          value={(() => {
+                            const genderValue = basicInfoForm.watch("gender");
+                            console.log('DEBUG Select: watch("gender") =', genderValue);
+                            return genderValue;
+                          })()}
+                          onValueChange={(value) => {
+                            console.log('DEBUG Select: onValueChange called with:', value);
+                            basicInfoForm.setValue("gender", value);
+                          }}
                         >
                           <SelectTrigger className="transition-all duration-200 focus:ring-2 focus:ring-blue-500/20">
                             <SelectValue placeholder="Chọn giới tính" />
