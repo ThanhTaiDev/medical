@@ -240,7 +240,7 @@ export default function DoctorPatientsPage() {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["doctor-patients", page, limit, debouncedSearch],
     queryFn: () =>
-      patientApi.getPatientsForDoctor({ page, limit, search: debouncedSearch }),
+      DoctorApi.listPatients({ page, limit, q: debouncedSearch }),
   });
 
   // Mutation for updating basic patient info
@@ -807,7 +807,13 @@ export default function DoctorPatientsPage() {
   };
 
   const patients = (data as any)?.data ?? [];
-  const pagination = (data as any)?.pagination;
+  const pagination = (data as any)?.pagination || {
+    total: (data as any)?.total || 0,
+    currentPage: page,
+    totalPages: Math.ceil(((data as any)?.total || 0) / limit),
+    hasNextPage: page < Math.ceil(((data as any)?.total || 0) / limit),
+    hasPrevPage: page > 1
+  };
 
   const openHistory = async (p: any) => {
     try {
@@ -1081,6 +1087,36 @@ export default function DoctorPatientsPage() {
                         <span className={`${(p as any).hasMedications ? 'text-green-600' : 'text-gray-500'}`}>
                           {(p as any).hasMedications ? 'Có đơn thuốc' : 'Chưa có đơn thuốc'}
                         </span>
+                        
+                        {/* Fallback: Calculate from prescriptionsAsPatient if new fields are not available */}
+                        {(() => {
+                          const totalPrescriptionCount = (p as any).totalPrescriptionCount || 
+                            (p.prescriptionsAsPatient ? p.prescriptionsAsPatient.length : 0);
+                          const activePrescriptionCount = (p as any).activePrescriptionCount || 
+                            (p.prescriptionsAsPatient ? p.prescriptionsAsPatient.filter((pres: any) => pres.status === 'ACTIVE').length : 0);
+                          
+                          return (
+                            <>
+                              {totalPrescriptionCount > 0 && (
+                                <>
+                                  <span className="text-muted-foreground/60">•</span>
+                                  <span className="text-blue-600 font-medium">
+                                    {totalPrescriptionCount} đơn thuốc
+                                  </span>
+                                  {activePrescriptionCount > 0 && (
+                                    <>
+                                      <span className="text-muted-foreground/60">•</span>
+                                      <span className="text-emerald-600 font-medium">
+                                        {activePrescriptionCount} đang hoạt động
+                                      </span>
+                                    </>
+                                  )}
+                                </>
+                              )}
+                            </>
+                          );
+                        })()}
+                        
                         {(p as any).totalReminderCount > 0 && (
                           <>
                             <span className="text-muted-foreground/60">•</span>
@@ -1124,11 +1160,11 @@ export default function DoctorPatientsPage() {
                       </div>
 
                       {/* Adherence - Show if available */}
-                      {p.adherence && (
+                      {p.adherence && p.adherence.adherenceRate !== null && p.adherence.adherenceRate !== undefined && (
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <div className="w-1 h-1 rounded-full bg-emerald-500"></div>
                           <span>
-                            Tuân thủ: {(p.adherence.rate * 100).toFixed(1)}%
+                            Tuân thủ: {(p.adherence.adherenceRate * 100).toFixed(1)}%
                           </span>
                         </div>
                       )}

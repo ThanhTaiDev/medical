@@ -127,6 +127,31 @@ export class DoctorService {
               majorDoctor: true,
               role: true
             }
+          },
+          prescriptionsAsPatient: {
+            where: {
+              doctorId: doctorId,
+              status: 'ACTIVE'
+            },
+            select: {
+              id: true,
+              status: true,
+              startDate: true,
+              endDate: true,
+              createdAt: true,
+              items: {
+                select: {
+                  id: true,
+                  medicationId: true,
+                  dosage: true,
+                  frequencyPerDay: true,
+                  timesOfDay: true,
+                  durationDays: true,
+                  route: true,
+                  instructions: true
+                }
+              }
+            }
           }
         },
         orderBy: { [orderByField]: orderDir },
@@ -135,7 +160,59 @@ export class DoctorService {
       }),
       this.databaseService.client.user.count({ where })
     ]);
-    return { data: items, total, page, limit };
+
+    // Thêm số đơn thuốc và thông tin adherence cho mỗi bệnh nhân
+    const enrichedItems = await Promise.all(
+      items.map(async (patient) => {
+        // Đếm tổng số đơn thuốc của bệnh nhân (tất cả trạng thái)
+        const totalPrescriptionCount = await this.databaseService.client.prescription.count({
+          where: {
+            patientId: patient.id,
+            doctorId: doctorId
+          }
+        });
+
+        // Đếm số đơn thuốc ACTIVE
+        const activePrescriptionCount = patient.prescriptionsAsPatient?.length || 0;
+
+        // Kiểm tra xem có đơn thuốc ACTIVE với thuốc không
+        const hasActivePrescriptionsWithMedications = patient.prescriptionsAsPatient?.some(
+          (prescription: any) => prescription.items && prescription.items.length > 0
+        ) || false;
+
+        // Lấy thông tin adherence nếu có
+        let adherence = null;
+        if (hasActivePrescriptionsWithMedications) {
+          try {
+            adherence = await this.getAdherenceStats(patient.id);
+          } catch (error) {
+            // Ignore error, adherence will be null
+          }
+        }
+
+        // Đếm tổng số reminder đã gửi cho bệnh nhân này
+        const totalReminderCount = await this.databaseService.client.alert.count({
+          where: {
+            patientId: patient.id,
+            doctorId: doctorId,
+            type: {
+              in: ['MISSED_DOSE', 'LOW_ADHERENCE', 'OTHER']
+            }
+          }
+        });
+
+        return {
+          ...patient,
+          totalPrescriptionCount,
+          activePrescriptionCount,
+          hasMedications: hasActivePrescriptionsWithMedications,
+          adherence,
+          totalReminderCount
+        };
+      })
+    );
+
+    return { data: enrichedItems, total, page, limit };
   }
 
   // Lấy tất cả bệnh nhân của doctor (bao gồm cả những người chưa có đơn thuốc)
@@ -213,8 +290,59 @@ export class DoctorService {
       }),
       this.databaseService.client.user.count({ where })
     ]);
+
+    // Thêm số đơn thuốc và thông tin adherence cho mỗi bệnh nhân
+    const enrichedItems = await Promise.all(
+      items.map(async (patient) => {
+        // Đếm tổng số đơn thuốc của bệnh nhân (tất cả trạng thái)
+        const totalPrescriptionCount = await this.databaseService.client.prescription.count({
+          where: {
+            patientId: patient.id,
+            doctorId: doctorId
+          }
+        });
+
+        // Đếm số đơn thuốc ACTIVE
+        const activePrescriptionCount = patient.prescriptionsAsPatient?.length || 0;
+
+        // Kiểm tra xem có đơn thuốc ACTIVE với thuốc không
+        const hasActivePrescriptionsWithMedications = patient.prescriptionsAsPatient?.some(
+          (prescription: any) => prescription.items && prescription.items.length > 0
+        ) || false;
+
+        // Lấy thông tin adherence nếu có
+        let adherence = null;
+        if (hasActivePrescriptionsWithMedications) {
+          try {
+            adherence = await this.getAdherenceStats(patient.id);
+          } catch (error) {
+            // Ignore error, adherence will be null
+          }
+        }
+
+        // Đếm tổng số reminder đã gửi cho bệnh nhân này
+        const totalReminderCount = await this.databaseService.client.alert.count({
+          where: {
+            patientId: patient.id,
+            doctorId: doctorId,
+            type: {
+              in: ['MISSED_DOSE', 'LOW_ADHERENCE', 'OTHER']
+            }
+          }
+        });
+
+        return {
+          ...patient,
+          totalPrescriptionCount,
+          activePrescriptionCount,
+          hasMedications: hasActivePrescriptionsWithMedications,
+          adherence,
+          totalReminderCount
+        };
+      })
+    );
     
-    return { data: items, total, page, limit };
+    return { data: enrichedItems, total, page, limit };
   }
 
   async getPatient(id: string) {

@@ -230,55 +230,11 @@ const DoctorMissisPillPage: React.FC = () => {
               Làm mới
             </Button>
 
-            {/* Test WebSocket button */}
-            <Button
-              variant="outline"
-              onClick={async () => {
-                try {
-                  const response = await fetch("/api/doctor/test-websocket", {
-                    method: "POST",
-                    headers: {
-                      Authorization: `Bearer ${localStorage.getItem("token")}`,
-                      "Content-Type": "application/json",
-                    },
-                  });
-                  const result = await response.json();
-                  console.log("WebSocket test result:", result);
-                  toast.success("WebSocket test sent!");
-                } catch (error) {
-                  console.error("WebSocket test error:", error);
-                  toast.error("WebSocket test failed");
-                }
-              }}
-              className="bg-blue-50 border-blue-200 hover:bg-blue-100 text-blue-700"
-            >
-              🔔 Test WS
-            </Button>
-
             {/* Real-time indicator */}
             <div className="flex items-center gap-2 text-xs">
               <div className="flex items-center gap-1">
-                <div
-                  className={`w-2 h-2 rounded-full ${
-                    isFetching ? "bg-green-500 animate-pulse" : "bg-green-400"
-                  }`}
-                />
-                <span className="hidden md:inline text-green-600">
-                  {isFetching ? "Đang cập nhật..." : "Đang đồng bộ"}
-                </span>
               </div>
-
-              {/* WebSocket status */}
-              <div className="flex items-center gap-1">
-                <div
-                  className={`w-2 h-2 rounded-full ${
-                    isConnected ? "bg-blue-500" : "bg-red-400"
-                  }`}
-                />
-                <span className="hidden md:inline text-blue-600">
-                  {isConnected ? "Real-time" : "Offline"}
-                </span>
-              </div>
+            
             </div>
           </div>
         </div>

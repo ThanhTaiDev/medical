@@ -12,6 +12,17 @@ export interface IPatient {
     status: EPatientStatus;
     role: string;
     userInfo: IUserInfo;
+    createdAt?: string;
+    hasMedications?: boolean;
+    totalReminderCount?: number;
+    totalPrescriptionCount?: number;
+    activePrescriptionCount?: number;
+    createdBy?: string;
+    createdByUser?: any;
+    profile?: any;
+    medicalHistory?: any;
+    prescriptionsAsPatient?: any[];
+    adherence?: any;
 }
 export interface ICreatePatientResponse {
     data: IPatient;

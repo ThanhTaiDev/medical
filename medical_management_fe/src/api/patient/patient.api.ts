@@ -82,17 +82,6 @@ export const patientApi = {
         
         // Transform backend data structure to match frontend expectations
         const transformedItems = items.map((item: any) => {
-            // Check if patient has active prescriptions with medications
-            const hasActivePrescriptions = item.prescriptionsAsPatient && 
-                Array.isArray(item.prescriptionsAsPatient) && 
-                item.prescriptionsAsPatient.length > 0 &&
-                item.prescriptionsAsPatient.some((prescription: any) => 
-                    prescription.status === 'ACTIVE' && 
-                    prescription.items && 
-                    Array.isArray(prescription.items) && 
-                    prescription.items.length > 0
-                );
-
             return {
                 id: item.id,
                 fullName: item.fullName,
@@ -100,15 +89,17 @@ export const patientApi = {
                 status: item.status || 'ACTIVE',
                 role: 'PATIENT',
                 createdAt: item.createdAt,
-                hasMedications: hasActivePrescriptions,
-                totalReminderCount: 0, // Will be updated based on reminder data
+                hasMedications: item.hasMedications || false,
+                totalReminderCount: item.totalReminderCount || 0,
+                totalPrescriptionCount: item.totalPrescriptionCount || 0,
+                activePrescriptionCount: item.activePrescriptionCount || 0,
                 createdBy: item.createdBy,
                 createdByUser: item.createdByUser,
                 userInfo: item.userInfo,
                 profile: item.profile,
                 medicalHistory: item.medicalHistory,
                 prescriptionsAsPatient: item.prescriptionsAsPatient, // Include prescription data
-                adherence: null // Will be populated when needed
+                adherence: item.adherence || null
             };
         });
         
