@@ -662,34 +662,32 @@ const MajorManagement: React.FC = () => {
               </div>
               
               {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
-                  <div className="text-sm text-muted-foreground">
-                    Hiển thị {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, totalItems)} trong tổng số {totalItems} chuyên khoa
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                    >
-                      Trước
-                    </Button>
-                    <span className="text-sm">
-                      Trang {currentPage} / {totalPages}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                      disabled={currentPage === totalPages}
-                    >
-                      Sau
-                    </Button>
-                  </div>
+              <div className="flex items-center justify-between mt-8 pt-6 border-t border-gradient-to-r from-transparent via-border/30 to-transparent">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="w-2 h-2 bg-primary/60 rounded-full animate-pulse"></div>
+                  Trang {currentPage} • Hiển thị <span className="font-semibold text-primary">{majors.length}</span> / <span className="font-semibold text-primary">{totalItems}</span> chuyên khoa
                 </div>
-              )}
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-primary/5 hover:border-primary/30 hover:text-primary hover:shadow-md hover:shadow-primary/10 transition-all duration-300"
+                  >
+                    Trước
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-primary/5 hover:border-primary/30 hover:text-primary hover:shadow-md hover:shadow-primary/10 transition-all duration-300"
+                  >
+                    Sau
+                  </Button>
+                </div>
+              </div>
             </>
           )}
         </CardContent>

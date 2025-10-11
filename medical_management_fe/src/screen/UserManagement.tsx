@@ -57,8 +57,6 @@ const UserManagement: React.FC = () => {
       ? "bg-blue-100 text-blue-700"
       : "bg-emerald-100 text-emerald-700";
 
-  const statusColor = (status?: User["status"]) =>
-    status === "ACTIVE" ? "bg-emerald-100 text-emerald-700" : "bg-zinc-100 text-zinc-600";
 
   const cardColorByRole = (role?: User["role"]) =>
     role === "ADMIN"
@@ -232,11 +230,7 @@ const UserManagement: React.FC = () => {
                         <div className="text-sm text-muted-foreground whitespace-normal break-words">
                           {u.phoneNumber}
                         </div>
-                        <div className="flex items-center justify-between pt-2">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium ${statusColor(u.status)}`}>
-                            <span className={`inline-block h-1.5 w-1.5 rounded-full ${u.status === "ACTIVE" ? "bg-emerald-600" : "bg-zinc-500"}`} />
-                            {u.status === "ACTIVE" ? "Hoạt động" : "Không hoạt động"}
-                          </span>
+                        <div className="flex items-center justify-end pt-2">
                           <span className="text-xs text-muted-foreground opacity-80 group-hover:opacity-100 transition-opacity">Chi tiết →</span>
                         </div>
                       </div>
@@ -274,154 +268,74 @@ const UserManagement: React.FC = () => {
       {/* Detail Dialog */}
       {selectedUserId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setSelectedUserId(null)} />
-          <div className="relative bg-card rounded-3xl shadow-2xl border border-border/20 w-full max-w-lg mx-auto overflow-hidden animate-in fade-in-0 zoom-in-95 duration-200">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setSelectedUserId(null)} />
+          <div className="relative bg-white rounded-xl shadow-lg w-full max-w-md mx-auto">
             {/* Header */}
-            <div className="relative p-6 bg-gradient-to-r from-background/80 to-background/60 backdrop-blur-sm border-b border-border/10">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
-                    <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-foreground">Thông tin người dùng</h2>
-                    <p className="text-sm text-muted-foreground">Chi tiết tài khoản hệ thống</p>
-                  </div>
-                </div>
-                <button 
-                  className="w-8 h-8 rounded-full bg-background/80 hover:bg-background border border-border/20 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
-                  onClick={() => setSelectedUserId(null)}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-lg font-semibold text-gray-900">Thông tin người dùng</h2>
+              <button 
+                className="w-6 h-6 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-700"
+                onClick={() => setSelectedUserId(null)}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
 
             {/* Content */}
-            <div className="p-6 space-y-6">
+            <div className="p-4">
               {isLoadingDetail ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="flex items-center gap-3 text-muted-foreground">
-                    <div className="w-5 h-5 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-                    <span>Đang tải chi tiết...</span>
-                  </div>
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-5 h-5 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+                  <span className="ml-2 text-gray-600">Đang tải...</span>
                 </div>
               ) : isErrorDetail || !userDetail ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="text-center">
-                    <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-3">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                      </svg>
-                    </div>
-                    <p className="text-red-600 font-medium">Không thể tải thông tin</p>
-                    <p className="text-sm text-muted-foreground">Vui lòng thử lại sau</p>
-                  </div>
+                <div className="text-center py-8">
+                  <p className="text-red-600">Không thể tải thông tin</p>
                 </div>
               ) : (
-                <>
-                  {/* User Avatar & Basic Info */}
-                  <div className="flex items-center gap-4 p-4 rounded-2xl bg-gradient-to-r from-background/50 to-background/30 border border-border/10">
-                    <div className="shrink-0 w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-primary/80 text-white flex items-center justify-center text-xl font-bold shadow-lg">
+                <div className="space-y-4">
+                  {/* User Info */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-blue-500 text-white flex items-center justify-center text-lg font-semibold">
                       {userDetail.fullName?.charAt(0) || "U"}
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-lg font-bold text-foreground leading-tight">{userDetail.fullName}</h3>
-                      <p className="text-sm text-muted-foreground mt-1">{userDetail.phoneNumber}</p>
+                    <div>
+                      <h3 className="font-semibold text-gray-900">{userDetail.fullName}</h3>
+                      <p className="text-sm text-gray-600">{userDetail.phoneNumber}</p>
                     </div>
                   </div>
 
-                  {/* User Details Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Role */}
-                    <div className="p-4 rounded-xl bg-background/40 border border-border/10">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        </div>
-                        <span className="text-sm font-medium text-muted-foreground">Vai trò</span>
-                      </div>
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium ${roleColor(userDetail.role)}`}>
-                        <span className={`w-2 h-2 rounded-full ${userDetail.role === "ADMIN" ? "bg-purple-500" : userDetail.role === "DOCTOR" ? "bg-blue-500" : "bg-emerald-500"}`}></span>
-                        {roleLabel(userDetail.role)}
-                      </span>
-                    </div>
-
-                    {/* Status */}
-                    <div className="p-4 rounded-xl bg-background/40 border border-border/10">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                          </svg>
-                        </div>
-                        <span className="text-sm font-medium text-muted-foreground">Trạng thái</span>
-                      </div>
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium ${statusColor(userDetail.status)}`}>
-                        <span className={`w-2 h-2 rounded-full ${userDetail.status === "ACTIVE" ? "bg-emerald-500" : "bg-zinc-500"}`}></span>
-                        {userDetail.status === "ACTIVE" ? "Hoạt động" : "Không hoạt động"}
-                      </span>
-                    </div>
+                  {/* Role */}
+                  <div className="flex items-center justify-between py-2 border-t">
+                    <span className="text-sm text-gray-600">Vai trò</span>
+                    <span className={`px-2 py-1 rounded text-sm font-medium ${roleColor(userDetail.role)}`}>
+                      {roleLabel(userDetail.role)}
+                    </span>
                   </div>
 
-                  {/* Additional Info */}
+                  {/* Major */}
                   {userDetail.majorDoctor && (
-                    <div className="p-4 rounded-xl bg-background/40 border border-border/10">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                          </svg>
-                        </div>
-                        <span className="text-sm font-medium text-muted-foreground">Chuyên khoa</span>
-                      </div>
-                      <span className="text-sm font-medium text-foreground">
+                    <div className="flex items-center justify-between py-2 border-t">
+                      <span className="text-sm text-gray-600">Chuyên khoa</span>
+                      <span className="text-sm font-medium text-gray-900">
                         {userDetail.majorDoctor === "DINH_DUONG" ? "Dinh dưỡng" : "Tâm thần"}
                       </span>
                     </div>
                   )}
-
-                  {/* Timestamps */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      <span>Tạo: {new Date(userDetail.createdAt).toLocaleDateString('vi-VN')}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                      <span>Cập nhật: {new Date(userDetail.updatedAt).toLocaleDateString('vi-VN')}</span>
-                    </div>
-                  </div>
-                </>
+                </div>
               )}
             </div>
 
             {/* Footer */}
-            <div className="p-6 border-t border-border/10 bg-background/30 backdrop-blur-sm">
-              <div className="flex items-center justify-end gap-3">
-                <button 
-                  className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                  onClick={() => setSelectedUserId(null)}
-                >
-                  Hủy
-                </button>
-                <button 
-                  className="px-6 py-2 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors shadow-sm"
-                  onClick={() => setSelectedUserId(null)}
-                >
-                  Đóng
-                </button>
-              </div>
+            <div className="flex justify-end p-4 border-t">
+              <button 
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                onClick={() => setSelectedUserId(null)}
+              >
+                Đóng
+              </button>
             </div>
           </div>
         </div>
