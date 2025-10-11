@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,7 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Search, Edit, Trash2, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { Plus, Search, Edit, Trash2, AlertTriangle, CheckCircle, XCircle, FileText, Stethoscope } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { majorApi, MajorDoctor } from "@/api/major/major.api";
 import { createMajorSchema, updateMajorSchema, CreateMajorFormData, UpdateMajorFormData } from "@/schemas/major.schema";
@@ -286,7 +285,24 @@ const MajorManagement: React.FC = () => {
   const majors = filteredMajors.slice(startIndex, endIndex);
 
   return (
-    <div className="space-y-6">
+    <>
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+          @keyframes fadeInUp {
+            from {
+              opacity: 0;
+              transform: translateY(20px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+        `,
+        }}
+      />
+      <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -420,96 +436,230 @@ const MajorManagement: React.FC = () => {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <span className="ml-2 text-muted-foreground">Đang tải...</span>
+            <div className="flex items-center justify-center py-16">
+              <div className="flex flex-col items-center gap-4">
+                <div className="relative">
+                  <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                  <div
+                    className="absolute inset-0 w-12 h-12 border-4 border-transparent border-t-primary/40 rounded-full animate-spin"
+                    style={{
+                      animationDelay: "0.15s",
+                      animationDuration: "1.5s",
+                    }}
+                  ></div>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-sm font-medium">
+                    Đang tải dữ liệu...
+                  </span>
+                  <p className="text-xs text-muted-foreground/70">
+                    Vui lòng chờ trong giây lát
+                  </p>
+                </div>
+              </div>
             </div>
           ) : error ? (
-            <div className="flex flex-col items-center justify-center py-8">
-              <div className="text-red-500 mb-2">Có lỗi xảy ra khi tải dữ liệu</div>
-              <Button variant="outline" onClick={() => refetch()}>
-                Thử lại
-              </Button>
+            <div className="flex flex-col items-center justify-center py-16">
+              <div className="flex flex-col items-center gap-4">
+                <div className="relative">
+                  <div className="w-16 h-16 bg-gradient-to-br from-destructive/50 to-destructive/30 rounded-2xl flex items-center justify-center">
+                    <AlertTriangle className="h-8 w-8 text-destructive/50" />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-sm font-medium text-destructive">
+                    Có lỗi xảy ra khi tải dữ liệu
+                  </span>
+                  <p className="text-xs text-muted-foreground/70">
+                    Vui lòng thử lại sau
+                  </p>
+                </div>
+                <Button variant="outline" onClick={() => refetch()}>
+                  Thử lại
+                </Button>
+              </div>
             </div>
           ) : filteredMajors.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8">
-              <div className="text-muted-foreground mb-2">Không có dữ liệu</div>
-              <Button variant="outline" onClick={() => refetch()}>
-                Làm mới
-              </Button>
+            <div className="flex flex-col items-center justify-center py-16">
+              <div className="flex flex-col items-center gap-4">
+                <div className="relative">
+                  <div className="w-16 h-16 bg-gradient-to-br from-muted/50 to-muted/30 rounded-2xl flex items-center justify-center">
+                    <Search className="h-8 w-8 text-muted-foreground/50" />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-sm font-medium">
+                    Không có dữ liệu
+                  </span>
+                  <p className="text-xs text-muted-foreground/70">
+                    Chuyên khoa sẽ xuất hiện ở đây khi được thêm
+                  </p>
+                </div>
+                <Button variant="outline" onClick={() => refetch()}>
+                  Làm mới
+                </Button>
+              </div>
             </div>
           ) : (
             <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Mã chuyên khoa</TableHead>
-                    <TableHead>Tên chuyên khoa</TableHead>
-                    <TableHead>Tên tiếng Anh</TableHead>
-                    <TableHead>Mô tả</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                    <TableHead>Thứ tự</TableHead>
-                    <TableHead className="text-right">Thao tác</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {majors.map((major: MajorDoctor) => (
-                    <TableRow key={major.id}>
-                      <TableCell className="font-medium">{major.code}</TableCell>
-                      <TableCell>{major.name}</TableCell>
-                      <TableCell>{major.nameEn || "-"}</TableCell>
-                      <TableCell className="max-w-xs truncate">
-                        {major.description || "-"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={major.isActive ? "default" : "secondary"}
-                          className={
-                            major.isActive
-                              ? "bg-green-100 text-green-800 hover:bg-green-200 cursor-pointer"
-                              : "bg-gray-100 text-gray-800 hover:bg-gray-200 cursor-pointer"
-                          }
-                          onClick={() => handleToggleStatus(major.id, major.isActive, major.name)}
+              <div className="relative rounded-2xl border border-border/20 overflow-hidden bg-gradient-to-br from-background/50 to-background/30 backdrop-blur-sm">
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-primary/5 opacity-50"></div>
+                <div className="relative">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-gradient-to-r from-muted/40 via-muted/20 to-muted/40 border-b border-border/30 hover:bg-gradient-to-r hover:from-muted/60 hover:via-muted/40 hover:to-muted/60 transition-all duration-300">
+                        <TableHead className="font-bold text-foreground/90 py-4">
+                          <div className="flex items-center gap-2">
+                            <div className="p-1 bg-primary/10 rounded-lg">
+                              <FileText className="h-4 w-4 text-primary" />
+                            </div>
+                            Mã chuyên khoa
+                          </div>
+                        </TableHead>
+                        <TableHead className="font-bold text-foreground/90 py-4">
+                          <div className="flex items-center gap-2">
+                            <div className="p-1 bg-primary/10 rounded-lg">
+                              <Stethoscope className="h-4 w-4 text-primary" />
+                            </div>
+                            Tên chuyên khoa
+                          </div>
+                        </TableHead>
+                        <TableHead className="font-bold text-foreground/90 py-4">
+                          <div className="flex items-center gap-2">
+                            <div className="p-1 bg-primary/10 rounded-lg">
+                              <FileText className="h-4 w-4 text-primary" />
+                            </div>
+                            Tên tiếng Anh
+                          </div>
+                        </TableHead>
+                        <TableHead className="font-bold text-foreground/90 py-4">
+                          <div className="flex items-center gap-2">
+                            <div className="p-1 bg-primary/10 rounded-lg">
+                              <FileText className="h-4 w-4 text-primary" />
+                            </div>
+                            Mô tả
+                          </div>
+                        </TableHead>
+                        <TableHead className="font-bold text-foreground/90 py-4">
+                          <div className="flex items-center gap-2">
+                            <div className="p-1 bg-primary/10 rounded-lg">
+                              <CheckCircle className="h-4 w-4 text-primary" />
+                            </div>
+                            Trạng thái
+                          </div>
+                        </TableHead>
+                        <TableHead className="font-bold text-foreground/90 py-4">
+                          <div className="flex items-center gap-2">
+                            <div className="p-1 bg-primary/10 rounded-lg">
+                              <FileText className="h-4 w-4 text-primary" />
+                            </div>
+                            Thứ tự
+                          </div>
+                        </TableHead>
+                        <TableHead className="text-right font-bold text-foreground/90 py-4">
+                          Thao tác
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {majors.map((major: MajorDoctor, index: number) => (
+                        <TableRow 
+                          key={major.id}
+                          className="group hover:bg-gradient-to-r hover:from-primary/5 hover:via-primary/3 hover:to-primary/5 transition-all duration-500 border-b border-border/20 hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5"
+                          style={{
+                            animationDelay: `${index * 100}ms`,
+                            animation: "fadeInUp 0.6s ease-out forwards",
+                          }}
                         >
-                          {major.isActive ? "Hoạt động" : "Tạm dừng"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{major.sortOrder}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="hover:bg-blue-50 hover:text-blue-700"
-                            onClick={() => handleOpenEditDialog(major)}
-                            title="Chỉnh sửa"
-                          >
-                            <Edit className="w-4 h-4 me-2" />
-                            Sửa
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="hover:bg-red-50 hover:text-red-700"
-                            onClick={() => handleOpenDeleteDialog(major)}
-                            disabled={deleteMajorMutation.isPending}
-                            title="Xóa"
-                          >
-                            {deleteMajorMutation.isPending ? (
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
-                            ) : (
-                              <div className="flex items-center">
-                                <Trash2 className="w-4 h-4 me-2" />
-                                Xóa
+                          <TableCell className="font-medium py-4">
+                            <span className="font-mono text-sm bg-gradient-to-r from-muted/80 to-muted/60 px-3 py-1.5 rounded-lg border border-border/30 group-hover:from-primary/10 group-hover:to-primary/5 group-hover:border-primary/20 transition-all duration-300">
+                              {major.code}
+                            </span>
+                          </TableCell>
+                          <TableCell className="py-4">
+                            <div className="flex items-center gap-4">
+                              <div className="relative group-hover:scale-110 transition-transform duration-300">
+                                <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/10 rounded-full blur-sm group-hover:blur-md transition-all duration-300"></div>
+                                <div className="relative w-10 h-10 bg-gradient-to-br from-primary/20 to-primary/10 rounded-full flex items-center justify-center border border-primary/20">
+                                  <span className="text-sm font-bold text-primary">
+                                    {major.name?.charAt(0)?.toUpperCase()}
+                                  </span>
+                                </div>
                               </div>
-                            )}
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                              <span className="font-semibold text-foreground group-hover:text-primary transition-colors duration-300">
+                                {major.name}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="py-4">
+                            <span className="text-muted-foreground font-medium">
+                              {major.nameEn || "-"}
+                            </span>
+                          </TableCell>
+                          <TableCell className="py-4">
+                            <span className="text-muted-foreground max-w-xs truncate block font-medium">
+                              {major.description || "-"}
+                            </span>
+                          </TableCell>
+                          <TableCell className="py-4">
+                            <span
+                              className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 group-hover:scale-105 cursor-pointer ${
+                                major.isActive
+                                  ? "bg-gradient-to-r from-green-100 to-green-200 text-green-800 border border-green-300/50 hover:from-green-200 hover:to-green-300"
+                                  : "bg-gradient-to-r from-gray-100 to-gray-200 text-gray-800 border border-gray-300/50 hover:from-gray-200 hover:to-gray-300"
+                              }`}
+                              onClick={() => handleToggleStatus(major.id, major.isActive, major.name)}
+                            >
+                              <div
+                                className={`w-2 h-2 rounded-full mr-2 ${
+                                  major.isActive ? "bg-green-600" : "bg-gray-600"
+                                }`}
+                              ></div>
+                              {major.isActive ? "Hoạt động" : "Tạm dừng"}
+                            </span>
+                          </TableCell>
+                          <TableCell className="py-4">
+                            <span className="text-muted-foreground font-medium">
+                              {major.sortOrder}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right py-4">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-primary/5 hover:border-primary/30 hover:text-primary hover:shadow-md hover:shadow-primary/10 transition-all duration-300 group-hover:scale-105"
+                                onClick={() => handleOpenEditDialog(major)}
+                                title="Chỉnh sửa"
+                              >
+                                <Edit className="h-4 w-4 mr-1.5" />
+                                Sửa
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="hover:bg-gradient-to-r hover:from-destructive/10 hover:to-destructive/5 hover:border-destructive/30 hover:text-destructive hover:shadow-md hover:shadow-destructive/10 transition-all duration-300 group-hover:scale-105"
+                                onClick={() => handleOpenDeleteDialog(major)}
+                                disabled={deleteMajorMutation.isPending}
+                                title="Xóa"
+                              >
+                                {deleteMajorMutation.isPending ? (
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-destructive"></div>
+                                ) : (
+                                  <div className="flex items-center">
+                                    <Trash2 className="h-4 w-4 mr-1.5" />
+                                    Xóa
+                                  </div>
+                                )}
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
               
               {/* Pagination */}
               {totalPages > 1 && (
@@ -897,7 +1047,8 @@ const MajorManagement: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </>
   );
 };
 
