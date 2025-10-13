@@ -29,6 +29,7 @@ import toast from "react-hot-toast"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
+import { getGenderLabel } from "@/utils/gender"
 
 // Helper function to calculate age from birth date
 const calculateAge = (birthDate: string): number => {
@@ -504,7 +505,7 @@ export function CreatePatientDialog({ isOpen, onClose, onCreateSuccess, defaultR
                     <div className='grid grid-cols-2 gap-3'>
                       <div>
                         <div className='text-xs text-muted-foreground'>Giới tính</div>
-                        <div className='text-sm text-foreground'>{createdPatientInfo.gender || '—'}</div>
+                        <div className='text-sm text-foreground'>{getGenderLabel(createdPatientInfo.gender)}</div>
                       </div>
                       <div>
                         <div className='text-xs text-muted-foreground'>Tuổi</div>
@@ -524,7 +525,7 @@ export function CreatePatientDialog({ isOpen, onClose, onCreateSuccess, defaultR
                     )}
               <div>
                       <div className='text-xs text-muted-foreground'>Trạng thái</div>
-                      <div className='text-sm text-foreground'>ACTIVE</div>
+                      <div className='text-sm text-foreground'>Hoạt động</div>
                     </div>
                     {createdPatientInfo.medicalHistory && (
                       <div className='space-y-2'>

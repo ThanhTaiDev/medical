@@ -42,6 +42,7 @@ import { X } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { getGenderLabel } from "@/utils/gender";
 
 // Schema for sending reminder
 const sendReminderSchema = z.object({
@@ -1137,15 +1138,7 @@ export default function DoctorPatientsPage() {
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <div className="w-1 h-1 rounded-full bg-blue-500"></div>
                         <span>
-                          {p.profile?.gender === "MALE"
-                            ? "Nam"
-                            : p.profile?.gender === "FEMALE"
-                              ? "Nữ"
-                              : p.userInfo?.gender === "MALE"
-                                ? "Nam"
-                                : p.userInfo?.gender === "FEMALE"
-                                  ? "Nữ"
-                                  : "Chưa cập nhật"}
+                          {getGenderLabel(p.profile?.gender || p.userInfo?.gender)}
                         </span>
                         <span className="text-muted-foreground/60">•</span>
                         <span>
@@ -1357,15 +1350,7 @@ export default function DoctorPatientsPage() {
                 <div>
                   <div className="text-xs text-muted-foreground">Giới tính</div>
                   <div className="text-sm text-foreground">
-                    {historyPatient.profile?.gender === "MALE"
-                      ? "Nam"
-                      : historyPatient.profile?.gender === "FEMALE"
-                        ? "Nữ"
-                        : historyPatient.userInfo?.gender === "MALE"
-                          ? "Nam"
-                          : historyPatient.userInfo?.gender === "FEMALE"
-                            ? "Nữ"
-                            : "Chưa cập nhật"}
+                    {getGenderLabel(historyPatient.profile?.gender || historyPatient.userInfo?.gender)}
                   </div>
                 </div>
                 <div>

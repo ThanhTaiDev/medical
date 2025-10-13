@@ -52,6 +52,7 @@ import {
   Stethoscope,
   FileSliders,
 } from "lucide-react";
+import { getGenderLabel } from "@/utils/gender";
 
 const toArray = (payload: any): any[] => {
   if (Array.isArray(payload)) return payload;
@@ -1481,17 +1482,14 @@ const DoctorManagement: React.FC = () => {
                             <TableCell className="py-4">
                               <span
                                 className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 group-hover:scale-105 ${
-                                  p.profile?.gender === "Nam" || p.profile?.gender === "MALE"
+                                  p.profile?.gender === "MALE"
                                     ? "bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 border border-blue-300/50"
-                                    : p.profile?.gender === "Nữ" || p.profile?.gender === "FEMALE"
+                                    : p.profile?.gender === "FEMALE"
                                     ? "bg-gradient-to-r from-pink-100 to-pink-200 text-pink-800 border border-pink-300/50"
                                     : "bg-gradient-to-r from-gray-100 to-gray-200 text-gray-800 border border-gray-300/50"
                                 }`}
                               >
-                                {p.profile?.gender === "MALE" ? "Nam" : 
-                                 p.profile?.gender === "FEMALE" ? "Nữ" : 
-                                 p.profile?.gender === "OTHER" ? "Khác" : 
-                                 p.profile?.gender || "-"}
+                                {getGenderLabel(p.profile?.gender)}
                               </span>
                             </TableCell>
                             <TableCell className="py-4">

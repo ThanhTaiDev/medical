@@ -22,6 +22,7 @@ import {
   Loader2,
   Stethoscope,
 } from 'lucide-react';
+import { getGenderLabel } from '@/utils/gender';
 
 export default function PatientInfo() {
   const navigate = useNavigate();
@@ -254,8 +255,7 @@ export default function PatientInfo() {
                       <div>
                         <p className="text-sm text-muted-foreground">Giới tính</p>
                         <p className="font-semibold">
-                          {patientData.profile?.gender === 'MALE' ? 'Nam' : 
-                           patientData.profile?.gender === 'FEMALE' ? 'Nữ' : 'Khác'}
+                          {getGenderLabel(patientData.profile?.gender)}
                         </p>
                       </div>
                     </div>
