@@ -131,10 +131,6 @@ const updateBasicInfoSchema = z
 const prescriptionItemSchema = z.object({
   medicationId: z.string().min(1, "Vui lòng chọn thuốc"),
   dosage: z.string().min(1, "Vui lòng nhập liều lượng"),
-  frequencyPerDay: z
-    .number()
-    .min(1, "Tần suất phải ít nhất 1 lần/ngày")
-    .max(10, "Tần suất không được quá 10 lần/ngày"),
   timesOfDay: z.array(z.string()).min(1, "Vui lòng chọn ít nhất 1 thời điểm"),
   durationDays: z
     .number()
@@ -153,7 +149,6 @@ const prescriptionSchema = z.object({
 
 type SendReminderData = z.infer<typeof sendReminderSchema>;
 type UpdateBasicInfoData = z.infer<typeof updateBasicInfoSchema>;
-type PrescriptionData = z.infer<typeof prescriptionSchema>;
 type PrescriptionItemData = z.infer<typeof prescriptionItemSchema>;
 
 export default function DoctorPatientsPage() {
@@ -199,7 +194,6 @@ export default function DoctorPatientsPage() {
     {
       medicationId: "",
       dosage: "",
-      frequencyPerDay: 1,
       timesOfDay: [],
       durationDays: 7,
       route: "",
@@ -374,7 +368,7 @@ export default function DoctorPatientsPage() {
 
   // Create prescription mutation
   const createPrescriptionMutation = useMutation({
-    mutationFn: (data: PrescriptionData) =>
+    mutationFn: (data: any) =>
       DoctorApi.createPrescription({
         patientId: historyPatient?.id,
         ...data,
@@ -394,7 +388,6 @@ export default function DoctorPatientsPage() {
         {
           medicationId: "",
           dosage: "",
-          frequencyPerDay: 1,
           timesOfDay: [],
           durationDays: 7,
           route: "",
@@ -415,7 +408,7 @@ export default function DoctorPatientsPage() {
 
   // Update prescription mutation
   const updatePrescriptionMutation = useMutation({
-    mutationFn: (params: { id: string; data: PrescriptionData }) =>
+    mutationFn: (params: { id: string; data: any }) =>
       DoctorApi.updatePrescription(params.id, {
         items: params.data.items,
         notes: params.data.notes,
@@ -435,7 +428,6 @@ export default function DoctorPatientsPage() {
         {
           medicationId: "",
           dosage: "",
-          frequencyPerDay: 1,
           timesOfDay: [],
           durationDays: 7,
           route: "",
@@ -544,7 +536,6 @@ export default function DoctorPatientsPage() {
       {
         medicationId: "",
         dosage: "",
-        frequencyPerDay: 1,
         timesOfDay: [],
         durationDays: 7,
         route: "",
@@ -585,8 +576,11 @@ export default function DoctorPatientsPage() {
   };
 
   const handleCreatePrescription = () => {
-    const prescriptionData: PrescriptionData = {
-      items: prescriptionItems,
+    const prescriptionData = {
+      items: prescriptionItems.map(item => ({
+        ...item,
+        frequencyPerDay: item.timesOfDay.length
+      })),
       notes: prescriptionNotes,
     };
 
@@ -631,7 +625,6 @@ export default function DoctorPatientsPage() {
     const items = (detail.items || []).map((i: any) => ({
       medicationId: i.medicationId || i.medication?.id || "",
       dosage: i.dosage || "",
-      frequencyPerDay: i.frequencyPerDay || 1,
       timesOfDay: normalizeTimes(i.timesOfDay),
       durationDays: i.durationDays || 7,
       route: i.route || "",
@@ -645,7 +638,6 @@ export default function DoctorPatientsPage() {
             {
               medicationId: "",
               dosage: "",
-              frequencyPerDay: 1,
               timesOfDay: [],
               durationDays: 7,
               route: "",
@@ -1783,25 +1775,14 @@ export default function DoctorPatientsPage() {
                             />
                           </div>
 
-                          {/* Frequency */}
+                          {/* Frequency - Auto calculated */}
                           <div>
                             <label className="text-xs font-medium text-muted-foreground mb-2 block">
-                              Tần suất/ngày *
+                              Tần suất/ngày
                             </label>
-                            <Input
-                              type="number"
-                              min="1"
-                              max="10"
-                              value={item.frequencyPerDay}
-                              onChange={(e) =>
-                                updatePrescriptionItem(
-                                  index,
-                                  "frequencyPerDay",
-                                  parseInt(e.target.value) || 1,
-                                )
-                              }
-                              className="transition-all duration-200 focus:ring-2 focus:ring-primary/20"
-                            />
+                            <div className="px-3 py-2 text-sm border border-border rounded-md bg-muted/20 text-muted-foreground">
+                              {item.timesOfDay.length} lần/ngày (tự động tính)
+                            </div>
                           </div>
 
                           {/* Duration */}
@@ -1855,7 +1836,7 @@ export default function DoctorPatientsPage() {
                         {/* Times of Day */}
                         <div className="mt-4">
                           <label className="text-xs font-medium text-muted-foreground mb-2 block">
-                            Thời điểm uống thuốc *
+                            Thời điểm uống thuốc * ({item.timesOfDay.length} lần/ngày)
                           </label>
                           <div className="flex flex-wrap gap-2">
                             {["Sáng", "Trưa", "Chiều", "Tối"].map((time) => (
