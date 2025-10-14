@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole, UserStatus, Gender, AdherenceStatus, AlertType, PrescriptionStatus, MajorDoctor } from '@prisma/client';
+import { PrismaClient, UserRole, UserStatus, Gender, MajorDoctor } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -155,10 +155,6 @@ async function createPatientDetails(patientId: string) {
 
 async function cleanupAll() {
   // Order matters due to FKs
-  await prisma.alert.deleteMany({});
-  await prisma.adherenceLog.deleteMany({});
-  await prisma.prescriptionItem.deleteMany({});
-  await prisma.prescription.deleteMany({});
   await prisma.patientMedicalHistory.deleteMany({});
   await prisma.patientProfile.deleteMany({});
   await prisma.medication.deleteMany({});
@@ -209,101 +205,13 @@ async function seed() {
   // 3) Medications
   const medications = await createMedications();
 
-  // 4) Prescriptions + Items (per patient)
-  const prescriptions: string[] = [];
-  for (const patient of patients) {
-    const count = randomInt(2, 4);
-    for (let k = 0; k < count; k++) {
-      const doctor = pickOne(doctors);
-      const prescription = await prisma.prescription.create({
-        data: {
-          patientId: patient.id,
-          doctorId: doctor.id,
-          status: pickOne([PrescriptionStatus.ACTIVE, PrescriptionStatus.ACTIVE, PrescriptionStatus.COMPLETED]),
-          startDate: new Date(Date.now() - randomInt(0, 30) * 24 * 60 * 60 * 1000),
-          notes: pickOne(['', 'Uống sau ăn', 'Tránh rượu bia'])
-        }
-      });
-      prescriptions.push(prescription.id);
-
-      const numItems = randomInt(1, 3);
-      for (let j = 0; j < numItems; j++) {
-        const med = pickOne(medications);
-        await prisma.prescriptionItem.create({
-          data: {
-            prescriptionId: prescription.id,
-            medicationId: med.id,
-            dosage: pickOne(['1 viên', '2 viên', '5ml']),
-            frequencyPerDay: pickOne([1, 2, 3]),
-            timesOfDay: pickOne([
-              ['08:00'],
-              ['08:00', '20:00'],
-              ['08:00', '14:00', '20:00']
-            ]),
-            durationDays: pickOne([7, 10, 14, 30]),
-            route: pickOne(['uống', 'bôi', 'hít']),
-            instructions: pickOne(['', 'Sau ăn', 'Trước khi ngủ'])
-          }
-        });
-      }
-    }
-  }
-
-  // 5) Adherence logs
-  for (const pid of prescriptions) {
-    const parent = await prisma.prescription.findUnique({ where: { id: pid } });
-    if (!parent) continue;
-
-    const items = await prisma.prescriptionItem.findMany({ where: { prescriptionId: pid } });
-    const patientId = parent.patientId;
-    const chosenItem = items.length ? pickOne(items) : undefined;
-    const baseDate = new Date();
-
-    const logCount = randomInt(6, 12);
-    for (let i = 0; i < logCount; i++) {
-      const status = pickOne([AdherenceStatus.TAKEN, AdherenceStatus.MISSED, AdherenceStatus.TAKEN, AdherenceStatus.SKIPPED]);
-      const offsetH = -1 * randomInt(1, 168); // within ~1 week
-      await prisma.adherenceLog.create({
-        data: {
-          prescriptionId: pid,
-          prescriptionItemId: chosenItem?.id ?? null,
-          patientId,
-          takenAt: new Date(baseDate.getTime() + offsetH * 60 * 60 * 1000),
-          status,
-          amount: null,
-          notes: status === AdherenceStatus.MISSED ? 'Bỏ liều' : null
-        }
-      });
-    }
-  }
-
-  // 6) Alerts
-  for (const pid of prescriptions) {
-    const parent = await prisma.prescription.findUnique({ where: { id: pid } });
-    if (!parent) continue;
-
-    const missedCount = await prisma.adherenceLog.count({ where: { prescriptionId: pid, status: AdherenceStatus.MISSED } });
-    if (missedCount >= 2) {
-      await prisma.alert.create({
-        data: {
-          prescriptionId: pid,
-          patientId: parent.patientId,
-          doctorId: parent.doctorId,
-          type: missedCount > 4 ? AlertType.LOW_ADHERENCE : AlertType.MISSED_DOSE,
-          message: missedCount > 4 ? 'Tỉ lệ tuân thủ thấp trong thời gian gần đây' : 'Phát hiện bỏ liều',
-          resolved: false
-        }
-      });
-    }
-  }
-
   console.log('Seeding done.');
 }
 
 seed()
   .catch((e) => {
     console.error(e);
-    process.exit(1);
+    throw e;
   })
   .finally(async () => {
     await prisma.$disconnect();
