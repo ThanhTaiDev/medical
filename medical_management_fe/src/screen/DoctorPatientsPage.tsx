@@ -852,7 +852,7 @@ export default function DoctorPatientsPage() {
     totalPages: Math.ceil(((data as any)?.total || 0) / limit),
     hasNextPage: page < Math.ceil(((data as any)?.total || 0) / limit),
     hasPrevPage: page > 1
-  };
+  });
 
   const openHistory = async (p: any) => {
     try {
