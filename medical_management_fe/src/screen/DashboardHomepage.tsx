@@ -9,11 +9,9 @@ function useAdminSelectedDoctor() {
   // TODO: REMOVE THIS - TEMPORARY BYPASS FOR TESTING
   const token = localStorage.getItem("accessToken");
   
-  // Mock doctors data when no token (bypass mode)
+  // Mock doctors data when no token (bypass mode) - Only 1 for Figma design
   const mockDoctors = !token ? [
     { id: "mock-doctor-1", fullName: "BS. Nguyễn Văn An", phoneNumber: "0931000001" },
-    { id: "mock-doctor-2", fullName: "BS. Trần Thị Bình", phoneNumber: "0971000002" },
-    { id: "mock-doctor-3", fullName: "BS. Lê Văn Cường", phoneNumber: "0981000003" },
   ] : [];
   
   const { data: doctorsResp } = useQuery({
@@ -36,23 +34,19 @@ function useOverviewData(doctorId?: string) {
   const token = localStorage.getItem("accessToken");
   const enabled = !!doctorId && !!token; // Only enable if both doctorId and token exist
   
-  // Mock data when no token (bypass mode)
+  // Mock data when no token (bypass mode) - Only 1 item each for Figma design
   const mockOverview = !token ? {
-    totalPrescriptions: 25,
-    activePatientsCount: 12,
+    totalPrescriptions: 1,
+    activePatientsCount: 1,
     adherenceRate: 0.85
   } : null;
   
   const mockItems = !token ? [
     { prescriptionId: "p1", medicationId: "m1", medicationName: "Paracetamol", strength: "500mg", form: "tablet", dosage: "1 viên", frequencyPerDay: 3, durationDays: 7, patientName: "Nguyễn Văn A", doctorName: "BS. Nguyễn Văn An", totalDoses: 21 },
-    { prescriptionId: "p2", medicationId: "m2", medicationName: "Amoxicillin", strength: "500mg", form: "capsule", dosage: "1 viên", frequencyPerDay: 2, durationDays: 5, patientName: "Trần Thị B", doctorName: "BS. Trần Thị Bình", totalDoses: 10 },
-    { prescriptionId: "p3", medicationId: "m3", medicationName: "Metformin", strength: "500mg", form: "tablet", dosage: "1 viên", frequencyPerDay: 2, durationDays: 30, patientName: "Lê Văn C", doctorName: "BS. Lê Văn Cường", totalDoses: 60 },
   ] : [];
   
   const mockPatients = !token ? [
     { patientId: "pat1", patientName: "Nguyễn Văn A", phoneNumber: "0902000001", doctorName: "BS. Nguyễn Văn An", adherence: { rate: 0.92, taken: 23, scheduled: 25 } },
-    { patientId: "pat2", patientName: "Trần Thị B", phoneNumber: "0902000002", doctorName: "BS. Trần Thị Bình", adherence: { rate: 0.88, taken: 22, scheduled: 25 } },
-    { patientId: "pat3", patientName: "Lê Văn C", phoneNumber: "0902000003", doctorName: "BS. Lê Văn Cường", adherence: { rate: 0.75, taken: 15, scheduled: 20 } },
   ] : [];
   
   const overviewQuery = useQuery({
