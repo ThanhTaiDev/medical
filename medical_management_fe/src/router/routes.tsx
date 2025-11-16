@@ -15,21 +15,28 @@ import DoctorInfo from "@/screen/DoctorInfo";
 import PatientInfo from "@/screen/PatientInfo";
 
 // Kiểm tra nếu người dùng đã đăng nhập
+// TODO: REMOVE THIS - TEMPORARY BYPASS FOR TESTING
 const isAuthenticated = () => {
-  return !!localStorage.getItem("accessToken");
+  // Bypass authentication - always return true for testing
+  return true;
+  // return !!localStorage.getItem("accessToken");
 };
 
 const getPrimaryRole = (): "ADMIN" | "DOCTOR" | "PATIENT" | null => {
-  try {
-    const rolesRaw = localStorage.getItem("roles");
-    if (!rolesRaw) return null;
-    const arr = JSON.parse(rolesRaw) as string[];
-    const r = arr?.[0];
-    if (r === "ADMIN" || r === "DOCTOR" || r === "PATIENT") return r;
-    return null;
-  } catch {
-    return null;
-  }
+  // TODO: REMOVE THIS - TEMPORARY BYPASS FOR TESTING
+  // Always return ADMIN role for testing
+  return "ADMIN";
+  
+  // try {
+  //   const rolesRaw = localStorage.getItem("roles");
+  //   if (!rolesRaw) return null;
+  //   const arr = JSON.parse(rolesRaw) as string[];
+  //   const r = arr?.[0];
+  //   if (r === "ADMIN" || r === "DOCTOR" || r === "PATIENT") return r;
+  //   return null;
+  // } catch {
+  //   return null;
+  // }
 };
 
 const roleToDefaultPath = (role: ReturnType<typeof getPrimaryRole>) => {

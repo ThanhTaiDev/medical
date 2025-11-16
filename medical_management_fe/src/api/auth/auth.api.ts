@@ -17,6 +17,22 @@ export const authApi = {
   },
 
   async getCurrentUser(): Promise<UserResponse> {
+    // TODO: REMOVE THIS - TEMPORARY BYPASS FOR TESTING
+    // Mock admin user if no token exists
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+      return {
+        data: {
+          id: "mock-admin-id",
+          phoneNumber: "0901000000",
+          fullName: "Quản trị Hệ thống",
+          role: "ADMIN",
+          status: "ACTIVE"
+        },
+        statusCode: 200
+      } as UserResponse;
+    }
+    
     const res = await axiosInstance.get("/auth/me");
     const raw = res.data?.data ?? res.data;
     // Normalize role field: backend may return `roles`
