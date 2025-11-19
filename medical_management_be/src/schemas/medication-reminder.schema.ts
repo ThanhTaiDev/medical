@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+/**
+ * Zod schemas cho medication reminder module
+ * Validation cho các API liên quan đến nhắc nhở uống thuốc
+ */
+
 // Schema cho việc gửi nhắc nhở thủ công từ bác sĩ
 export const sendReminderSchema = z.object({
   prescriptionId: z.string().uuid('ID đơn thuốc không hợp lệ'),
