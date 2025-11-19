@@ -14,6 +14,10 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 
+/**
+ * JWT Payload interface
+ * Định nghĩa cấu trúc dữ liệu trong JWT token
+ */
 interface JwtPayload {
   id: string;
   phoneNumber: string;
