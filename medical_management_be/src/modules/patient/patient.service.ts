@@ -3,6 +3,10 @@ import { DatabaseService } from '@/core/database/database.service';
 import { AdherenceStatus, PrescriptionStatus } from '@prisma/client';
 import { Utils } from '@/utils/utils';
 
+/**
+ * Service xử lý các nghiệp vụ của bệnh nhân
+ * Quản lý đơn thuốc, lịch nhắc và tuân thủ uống thuốc
+ */
 @Injectable()
 export class PatientService {
   constructor(private readonly databaseService: DatabaseService) {}
