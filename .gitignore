@@ -1,3 +1,7 @@
+# ==========================================
+# Medical Management Project - .gitignore
+# ==========================================
+
 # compiled output
 /dist
 /node_modules
