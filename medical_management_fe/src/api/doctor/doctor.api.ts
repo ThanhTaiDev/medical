@@ -1,4 +1,7 @@
-// Real doctor API calls to backend
+/**
+ * API service cho các chức năng liên quan đến bác sĩ
+ * Quản lý danh sách bác sĩ, lịch khám và thông tin bệnh nhân
+ */
 import { axiosInstance } from "../axios";
 import {
   AvailableDoctorsResponse,
