@@ -12,6 +12,9 @@ import { Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 
 export class Utils {
+  /**
+   * Các utility functions chung cho toàn bộ ứng dụng
+   */
   static CommonUtils = {
     delayFunc: <T>(ms: number): Promise<T> => {
       return new Promise((resolve) => setTimeout(resolve, ms));
