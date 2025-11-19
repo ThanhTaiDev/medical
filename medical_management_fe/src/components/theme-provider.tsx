@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react"
 
+// Định nghĩa các loại theme có thể sử dụng
 type Theme = "dark" | "light" | "system"
 
 type ThemeProviderProps = {
