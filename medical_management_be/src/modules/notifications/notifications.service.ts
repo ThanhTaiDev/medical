@@ -3,6 +3,10 @@ import { DatabaseService } from '@/core/database/database.service';
 import { AlertType, AdherenceStatus } from '@prisma/client';
 import { SendReminderDto, QuickConfirmDto, MedicationScheduleQueryDto, AdherenceReportQueryDto } from '@/schemas/medication-reminder.schema';
 
+/**
+ * Service quản lý thông báo và nhắc nhở uống thuốc
+ * Xử lý gửi thông báo, cập nhật trạng thái tuân thủ
+ */
 @Injectable()
 export class NotificationsService {
   constructor(private readonly databaseService: DatabaseService) {}
