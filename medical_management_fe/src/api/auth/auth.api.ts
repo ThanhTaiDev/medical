@@ -41,5 +41,7 @@ export const authApi = {
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
     localStorage.removeItem("roles");
+    // Dispatch custom event to notify other components about auth change
+    window.dispatchEvent(new Event("authChange"));
   }
 };

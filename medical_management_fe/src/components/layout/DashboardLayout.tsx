@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback, useState, useEffect, useRef } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { authApi } from "@/api/auth/auth.api";
 // import { User } from "@/api/auth/types";
 import {
@@ -338,12 +338,16 @@ const DashboardLayout: React.FC = () => {
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const { data: userData, isLoading, isError } = useQuery({
+  const queryClient = useQueryClient();
+  const [hasAccessToken, setHasAccessToken] = useState(() => !!localStorage.getItem("accessToken"));
+  
+  const { data: userData, isLoading, isError, refetch } = useQuery({
     queryKey: ["currentUser"],
     queryFn: authApi.getCurrentUser,
     retry: false, // Disable retry to prevent infinite loop
     refetchOnWindowFocus: false, // Disable refetch on window focus
-    refetchOnMount: false, // Only fetch once on mount
+    refetchOnMount: true, // Refetch when component mounts to get latest user data
+    enabled: hasAccessToken, // Only fetch if accessToken exists
   });
 
   // Update localStorage roles when userData changes to keep it in sync
@@ -363,6 +367,50 @@ const DashboardLayout: React.FC = () => {
       }
     }
   }, [userData?.data?.role]);
+
+  // Listen for accessToken changes to refetch user data when login/logout
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "accessToken") {
+        setHasAccessToken(!!e.newValue);
+        if (e.newValue) {
+          // Token was added (login) - refetch user data
+          queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+          queryClient.refetchQueries({ queryKey: ["currentUser"] });
+        } else {
+          // Token was removed (logout) - clear user data
+          queryClient.setQueryData({ queryKey: ["currentUser"] }, null);
+          queryClient.removeQueries({ queryKey: ["currentUser"] });
+        }
+      }
+    };
+
+    // Listen for storage events (from other tabs/windows)
+    window.addEventListener("storage", handleStorageChange);
+
+    // Also listen for custom events (from same tab)
+    const handleCustomStorageChange = () => {
+      const accessToken = localStorage.getItem("accessToken");
+      setHasAccessToken(!!accessToken);
+      if (accessToken) {
+        // Token was added (login) - invalidate and refetch user data
+        queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+        queryClient.refetchQueries({ queryKey: ["currentUser"] });
+      } else {
+        // Token was removed (logout) - clear user data
+        queryClient.setQueryData({ queryKey: ["currentUser"] }, null);
+        queryClient.removeQueries({ queryKey: ["currentUser"] });
+      }
+    };
+
+    // Custom event listener for same-tab changes
+    window.addEventListener("authChange", handleCustomStorageChange);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("authChange", handleCustomStorageChange);
+    };
+  }, [queryClient, refetch]);
 
   // Đóng dropdown khi click ra ngoài
   useEffect(() => {
@@ -423,6 +471,7 @@ const DashboardLayout: React.FC = () => {
           <Button
             variant="default"
             onClick={() => {
+              queryClient.setQueryData({ queryKey: ["currentUser"] }, null);
               authApi.logout();
               window.location.href = "/";
             }}
@@ -573,6 +622,7 @@ const DashboardLayout: React.FC = () => {
                           size="sm"
                           className="w-full justify-start text-muted-foreground hover:text-red-500 hover:bg-red-50/50 dark:hover:bg-red-950/20 transition-colors duration-200"
                           onClick={() => {
+                            queryClient.setQueryData({ queryKey: ["currentUser"] }, null);
                             authApi.logout();
                             navigate("/");
                           }}

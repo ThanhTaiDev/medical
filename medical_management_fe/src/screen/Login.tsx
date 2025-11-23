@@ -73,6 +73,9 @@ export default function Login() {
       localStorage.setItem("refreshToken", res.refreshToken);
       localStorage.setItem("roles", JSON.stringify([res.user.role]));
 
+      // Dispatch custom event to notify other components about auth change
+      window.dispatchEvent(new Event("authChange"));
+
       // Refresh current user cache
       queryClient.invalidateQueries({ queryKey: ["currentUser"] });
 
