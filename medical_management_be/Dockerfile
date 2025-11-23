@@ -40,4 +40,5 @@ COPY --from=builder /app/prisma ./prisma
 EXPOSE 9900
 
 # Khởi chạy ứng dụng (KHÔNG seed tự động - seed chỉ chạy thủ công khi cần)
-CMD ["sh", "-c", "npx prisma generate && npx prisma migrate deploy && node dist/main.js"] 
+# Xử lý migration: thử migrate deploy, nếu fail thì dùng db push (cho database đã có schema)
+CMD ["sh", "-c", "npx prisma generate && (npx prisma migrate deploy 2>/dev/null || echo 'Migration deploy failed, using db push...' && npx prisma db push --accept-data-loss --skip-generate) && node dist/main.js"] 
