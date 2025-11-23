@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole, UserStatus, Gender, MajorDoctor } from '@prisma/client';
+import { PrismaClient, UserRole, UserStatus, Gender, MajorDoctor, PrescriptionStatus, AdherenceStatus, AlertType } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -155,6 +155,10 @@ async function createPatientDetails(patientId: string) {
 
 async function cleanupAll() {
   // Order matters due to FKs
+  await prisma.adherenceLog.deleteMany({});
+  await prisma.alert.deleteMany({});
+  await prisma.prescriptionItem.deleteMany({});
+  await prisma.prescription.deleteMany({});
   await prisma.patientMedicalHistory.deleteMany({});
   await prisma.patientProfile.deleteMany({});
   await prisma.medication.deleteMany({});
@@ -165,7 +169,23 @@ async function cleanupAll() {
 async function seed() {
   console.log('Seeding database...');
 
-  await cleanupAll();
+  // Kiểm tra xem có nên seed hay không
+  // Nếu có dữ liệu rồi và không có flag FORCE_SEED, thì skip
+  const forceSeed = process.env.FORCE_SEED === 'true';
+  const existingUsers = await prisma.user.count();
+  
+  if (existingUsers > 0 && !forceSeed) {
+    console.log('Database already has data. Skipping seed.');
+    console.log('To force seed (will delete all data), set FORCE_SEED=true');
+    return;
+  }
+
+  if (forceSeed) {
+    console.log('FORCE_SEED=true detected. Cleaning up existing data...');
+    await cleanupAll();
+  } else {
+    await cleanupAll();
+  }
 
   // 1) Major Doctors
   const majorDoctors = await createMajorDoctors();
@@ -204,6 +224,107 @@ async function seed() {
 
   // 3) Medications
   const medications = await createMedications();
+
+  // 4) Create Prescriptions with Items
+  console.log('Creating prescriptions...');
+  for (let i = 0; i < patients.length; i++) {
+    const patient = patients[i];
+    const assignedDoctor = doctors[i % doctors.length];
+    
+    // Tạo 1-2 prescriptions cho mỗi bệnh nhân
+    const numPrescriptions = randomInt(1, 2);
+    
+    for (let p = 0; p < numPrescriptions; p++) {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - randomInt(0, 30)); // Trong 30 ngày qua
+      const durationDays = randomInt(7, 30);
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + durationDays);
+      
+      const prescription = await prisma.prescription.create({
+        data: {
+          patientId: patient.id,
+          doctorId: assignedDoctor.id,
+          status: randomInt(0, 10) > 2 ? PrescriptionStatus.ACTIVE : PrescriptionStatus.COMPLETED,
+          startDate,
+          endDate: randomInt(0, 10) > 7 ? endDate : null,
+          notes: pickOne(['', 'Theo dõi thường xuyên', 'Uống sau ăn', 'Uống trước ăn']),
+          items: {
+            create: Array.from({ length: randomInt(1, 3) }, () => {
+              const med = pickOne(medications);
+              const timesOfDay = pickOne([
+                ['08:00'],
+                ['08:00', '20:00'],
+                ['08:00', '14:00', '20:00'],
+                ['07:00', '19:00']
+              ]);
+              
+              return {
+                medicationId: med.id,
+                dosage: pickOne(['1 viên', '2 viên', '1/2 viên', '1 viên/lần']),
+                frequencyPerDay: timesOfDay.length,
+                timesOfDay,
+                durationDays,
+                route: pickOne(['Uống', 'Tiêm', 'Bôi', null]),
+                instructions: pickOne(['Uống sau ăn', 'Uống trước ăn', 'Uống với nhiều nước', null])
+              };
+            })
+          }
+        },
+        include: {
+          items: true
+        }
+      });
+
+      // Tạo một số adherence logs cho prescription items
+      for (const item of prescription.items || []) {
+        const numLogs = randomInt(5, 20);
+        const logs = [];
+        
+        for (let logIdx = 0; logIdx < numLogs; logIdx++) {
+          const takenAt = new Date(startDate);
+          takenAt.setDate(takenAt.getDate() + logIdx);
+          takenAt.setHours(randomInt(7, 21), randomInt(0, 59), 0, 0);
+          
+          if (takenAt <= new Date()) {
+            logs.push({
+              prescriptionId: prescription.id,
+              prescriptionItemId: item.id,
+              patientId: patient.id,
+              takenAt,
+              status: pickOne([AdherenceStatus.TAKEN, AdherenceStatus.TAKEN, AdherenceStatus.TAKEN, AdherenceStatus.MISSED]),
+              amount: item.dosage,
+              notes: randomInt(0, 10) > 8 ? pickOne(['Đã uống', 'Quên uống', null]) : null
+            });
+          }
+        }
+        
+        if (logs.length > 0) {
+          await prisma.adherenceLog.createMany({
+            data: logs
+          });
+        }
+      }
+
+      // Tạo một số alerts
+      if (randomInt(0, 10) > 6) {
+        await prisma.alert.create({
+          data: {
+            prescriptionId: prescription.id,
+            patientId: patient.id,
+            doctorId: assignedDoctor.id,
+            type: pickOne([AlertType.MISSED_DOSE, AlertType.LOW_ADHERENCE]),
+            message: pickOne([
+              'Bệnh nhân quên uống thuốc 2 lần liên tiếp',
+              'Tỷ lệ tuân thủ thấp hơn 80%',
+              'Cần theo dõi thêm'
+            ]),
+            resolved: randomInt(0, 10) > 7
+          }
+        });
+      }
+    }
+  }
 
   console.log('Seeding done.');
 }

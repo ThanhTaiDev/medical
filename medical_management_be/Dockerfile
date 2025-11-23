@@ -39,5 +39,5 @@ COPY --from=builder /app/prisma ./prisma
 # Expose port
 EXPOSE 9900
 
-# Khởi chạy ứng dụng với seed
-CMD ["sh", "-c", "npx prisma generate && npx prisma db push && npx tsx prisma/seed.ts && node dist/main.js"] 
+# Khởi chạy ứng dụng (KHÔNG seed tự động - seed chỉ chạy thủ công khi cần)
+CMD ["sh", "-c", "npx prisma generate && npx prisma migrate deploy && node dist/main.js"] 
