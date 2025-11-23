@@ -346,6 +346,24 @@ const DashboardLayout: React.FC = () => {
     refetchOnMount: false, // Only fetch once on mount
   });
 
+  // Update localStorage roles when userData changes to keep it in sync
+  useEffect(() => {
+    if (userData?.data?.role) {
+      const currentRole = userData.data.role;
+      const storedRoles = localStorage.getItem("roles");
+      try {
+        const parsedRoles = storedRoles ? JSON.parse(storedRoles) : [];
+        // Only update if role changed
+        if (parsedRoles[0] !== currentRole) {
+          localStorage.setItem("roles", JSON.stringify([currentRole]));
+        }
+      } catch {
+        // If parsing fails, set it fresh
+        localStorage.setItem("roles", JSON.stringify([currentRole]));
+      }
+    }
+  }, [userData?.data?.role]);
+
   // Đóng dropdown khi click ra ngoài
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

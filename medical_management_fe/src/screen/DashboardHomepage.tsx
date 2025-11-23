@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { DoctorApi } from "@/api/doctor";
 import { userApi } from "@/api/user/user.api";
@@ -95,8 +96,27 @@ function formatPercent(n: number) {
 }
 
 const DashboardHomepage: React.FC = () => {
+  const navigate = useNavigate();
   const { doctorId, setDoctorId, doctors } = useAdminSelectedDoctor();
   const { overviewQuery, itemsQuery, patientsQuery } = useOverviewData(doctorId);
+
+  // Redirect non-admin users to their appropriate pages
+  useEffect(() => {
+    try {
+      const rolesRaw = localStorage.getItem("roles");
+      if (rolesRaw) {
+        const roles = JSON.parse(rolesRaw) as string[];
+        const role = roles[0];
+        if (role === "DOCTOR") {
+          navigate("/dashboard/doctor-patients", { replace: true });
+        } else if (role === "PATIENT") {
+          navigate("/dashboard/patients", { replace: true });
+        }
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  }, [navigate]);
 
   const loading = overviewQuery.isLoading || itemsQuery.isLoading || patientsQuery.isLoading;
   const overview = overviewQuery.data || { totalPrescriptions: 0, activePatientsCount: 0, adherenceRate: 0 };
