@@ -192,33 +192,77 @@ export default function PatientPage() {
       return;
     }
 
-    // Find first unresolved LOW_ADHERENCE alert
+    // Find first unresolved alert from doctor (any type: LOW_ADHERENCE, MISSED_DOSE, OTHER)
     const alertsArr = Array.isArray(ovAlerts) ? ovAlerts : [];
     console.log("Alerts array for dialog:", alertsArr);
 
-    const warn = alertsArr.find(
-      (a: any) => a.type === "LOW_ADHERENCE" && !a.resolved
-    );
-    console.log("Found LOW_ADHERENCE alert:", warn);
+    // Lọc các alert chưa resolved từ bác sĩ (có doctorId)
+    const unresolvedAlertsFromDoctor = alertsArr
+      .filter((a: any) => 
+        !a.resolved && 
+        a.doctorId && (
+          a.type === "LOW_ADHERENCE" || 
+          a.type === "OTHER" || 
+          a.type === "MISSED_DOSE"
+        )
+      )
+      .sort((a: any, b: any) => {
+        // Sắp xếp theo thời gian tạo, mới nhất trước
+        const dateA = new Date(a.createdAt || 0).getTime();
+        const dateB = new Date(b.createdAt || 0).getTime();
+        return dateB - dateA;
+      });
+
+    // Nếu không có alert từ bác sĩ, tìm alert chưa resolved bất kỳ
+    const unresolvedAlerts = unresolvedAlertsFromDoctor.length > 0 
+      ? unresolvedAlertsFromDoctor
+      : alertsArr
+          .filter((a: any) => 
+            !a.resolved && (
+              a.type === "LOW_ADHERENCE" || 
+              a.type === "OTHER" || 
+              a.type === "MISSED_DOSE"
+            )
+          )
+          .sort((a: any, b: any) => {
+            const dateA = new Date(a.createdAt || 0).getTime();
+            const dateB = new Date(b.createdAt || 0).getTime();
+            return dateB - dateA;
+          });
+
+    // Lấy alert mới nhất chưa được dismiss
+    let warn = null;
+    for (const alert of unresolvedAlerts) {
+      const dismissedKey = `warning_dialog_dismissed_${alert.id}`;
+      const hasSeenThisAlert = localStorage.getItem(dismissedKey);
+      if (!hasSeenThisAlert) {
+        warn = alert;
+        break;
+      }
+    }
+
+    console.log("Found alert for dialog:", warn);
 
     if (warn) {
-      // Check if user has already seen this warning dialog today
-      const today = new Date().toISOString().slice(0, 10);
-      const dismissedKey = `warning_dialog_dismissed_${today}`;
-      const hasSeenToday = localStorage.getItem(dismissedKey);
+      // Check if user has already seen this specific alert dialog
+      const dismissedKey = `warning_dialog_dismissed_${warn.id}`;
+      const hasSeenThisAlert = localStorage.getItem(dismissedKey);
 
-      console.log("Today:", today);
+      console.log("Alert ID:", warn.id);
       console.log("Dismissed key:", dismissedKey);
-      console.log("Has seen today:", hasSeenToday);
+      console.log("Has seen this alert:", hasSeenThisAlert);
 
-      if (!hasSeenToday) {
+      if (!hasSeenThisAlert) {
         // Try to extract doctor name from message pattern "Bác sĩ <name> ..."
         const msg: string = warn.message || "";
-        const match = msg.match(/Bác sĩ\s+([^\s].*?)\s+nhắc/);
+        const match = msg.match(/Bác sĩ\s+([^\s].*?)\s+nhắc/) || 
+                     msg.match(/Bác sĩ\s+([^\s]+)/);
         const doctorName = match?.[1];
         console.log("Setting warning dialog with:", {
           doctorName,
           message: warn.message,
+          alertId: warn.id,
+          alertType: warn.type,
         });
         setFirstWarningDialog({
           open: true,
@@ -226,10 +270,10 @@ export default function PatientPage() {
           message: warn.message,
         });
       } else {
-        console.log("Dialog already dismissed today");
+        console.log("Dialog already dismissed for this alert");
       }
     } else {
-      console.log("No LOW_ADHERENCE alert found");
+      console.log("No unresolved alert found");
     }
     console.log("=== END WARNING DIALOG DEBUG ===");
   }, [role, ovAlerts]);
@@ -2485,10 +2529,19 @@ export default function PatientPage() {
             <DialogFooter>
               <Button
                 onClick={() => {
-                  // Mark as dismissed for today
-                  const today = new Date().toISOString().slice(0, 10);
-                  const dismissedKey = `warning_dialog_dismissed_${today}`;
-                  localStorage.setItem(dismissedKey, "true");
+                  // Mark this specific alert as dismissed
+                  const alertsArr = Array.isArray(ovAlerts) ? ovAlerts : [];
+                  const currentAlert = alertsArr.find(
+                    (a: any) => !a.resolved && (
+                      a.type === "LOW_ADHERENCE" || 
+                      a.type === "OTHER" || 
+                      a.type === "MISSED_DOSE"
+                    )
+                  );
+                  if (currentAlert) {
+                    const dismissedKey = `warning_dialog_dismissed_${currentAlert.id}`;
+                    localStorage.setItem(dismissedKey, "true");
+                  }
                   setFirstWarningDialog((prev) => ({ ...prev, open: false }));
                 }}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white"
