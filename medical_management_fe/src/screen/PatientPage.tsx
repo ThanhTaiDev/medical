@@ -4,6 +4,7 @@ import { patientApi } from "@/api/patient/patient.api";
 import { authApi } from "@/api/auth/auth.api";
 import { useLocation } from "react-router-dom";
 import toast from "react-hot-toast";
+import html2pdf from "html2pdf.js";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ import {
   XCircle,
   User,
   Activity,
+  FileDown,
 } from "lucide-react";
 import { TimeValidationDialog } from "@/components/dialogs/TimeValidationDialog";
 import {
@@ -379,6 +381,219 @@ export default function PatientPage() {
 
   const getStatusText = (status: string): string => {
     return translateStatus(status);
+  };
+
+  const exportPrescriptionToPDF = (prescription: Prescription) => {
+    try {
+      const formatDateForPDF = (dateString: string) => {
+        if (!dateString) return "N/A";
+        const date = new Date(dateString);
+        return date.toLocaleDateString("vi-VN", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      };
+
+      const getStatusTextForPDF = (status: string) => {
+        switch (status) {
+          case "ACTIVE":
+            return "Đang điều trị";
+          case "COMPLETED":
+            return "Hoàn thành";
+          case "CANCELLED":
+            return "Đã hủy";
+          default:
+            return status || "N/A";
+        }
+      };
+
+      // Tính ngày kết thúc nếu không có
+      let endDateText = "Đang điều trị";
+      if (prescription.endDate) {
+        endDateText = formatDateForPDF(prescription.endDate);
+      } else if (prescription.startDate && Array.isArray(prescription.items) && prescription.items.length > 0) {
+        const maxDurationDays = Math.max(
+          ...prescription.items.map((item: any) => item.durationDays || 0)
+        );
+        if (maxDurationDays > 0) {
+          const calculatedEndDate = new Date(prescription.startDate);
+          calculatedEndDate.setDate(calculatedEndDate.getDate() + maxDurationDays);
+          endDateText = formatDateForPDF(calculatedEndDate.toISOString());
+        }
+      }
+
+      // Tạo HTML content
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <style>
+            body {
+              font-family: 'Arial', sans-serif;
+              padding: 20px;
+              color: #333;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 30px;
+              border-bottom: 2px solid #10B981;
+              padding-bottom: 20px;
+            }
+            .header h1 {
+              color: #10B981;
+              margin: 0;
+              font-size: 24px;
+            }
+            .info-section {
+              margin-bottom: 20px;
+            }
+            .info-row {
+              display: flex;
+              margin-bottom: 10px;
+            }
+            .info-label {
+              font-weight: bold;
+              width: 150px;
+            }
+            .info-value {
+              flex: 1;
+            }
+            .medications-section {
+              margin-top: 30px;
+            }
+            .medication-item {
+              border: 1px solid #ddd;
+              padding: 15px;
+              margin-bottom: 15px;
+              border-radius: 5px;
+            }
+            .medication-name {
+              font-weight: bold;
+              font-size: 16px;
+              color: #10B981;
+              margin-bottom: 10px;
+            }
+            .medication-details {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 10px;
+              margin-top: 10px;
+            }
+            .badge {
+              background-color: #f0f0f0;
+              padding: 5px 10px;
+              border-radius: 3px;
+              font-size: 12px;
+            }
+            .footer {
+              margin-top: 30px;
+              text-align: center;
+              font-size: 12px;
+              color: #666;
+              border-top: 1px solid #ddd;
+              padding-top: 20px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>ĐƠN THUỐC</h1>
+          </div>
+          
+          <div class="info-section">
+            <div class="info-row">
+              <div class="info-label">Mã đơn:</div>
+              <div class="info-value">${prescription.id || "N/A"}</div>
+            </div>
+            <div class="info-row">
+              <div class="info-label">Trạng thái:</div>
+              <div class="info-value">${getStatusTextForPDF(prescription.status)}</div>
+            </div>
+            <div class="info-row">
+              <div class="info-label">Ngày bắt đầu:</div>
+              <div class="info-value">${formatDateForPDF(prescription.startDate)}</div>
+            </div>
+            <div class="info-row">
+              <div class="info-label">Ngày kết thúc:</div>
+              <div class="info-value">${endDateText}</div>
+            </div>
+          </div>
+
+          <div class="info-section">
+            <h3 style="margin-bottom: 10px; color: #10B981;">Thông tin bác sĩ</h3>
+            <div class="info-row">
+              <div class="info-label">Họ và tên:</div>
+              <div class="info-value">${prescription.doctor?.fullName || "N/A"}</div>
+            </div>
+          </div>
+
+          ${prescription.notes ? `
+          <div class="info-section">
+            <h3 style="margin-bottom: 10px; color: #10B981;">Ghi chú</h3>
+            <p>${prescription.notes}</p>
+          </div>
+          ` : ""}
+
+          <div class="medications-section">
+            <h3 style="margin-bottom: 15px; color: #10B981;">Danh sách thuốc</h3>
+            ${Array.isArray(prescription.items) && prescription.items.length > 0
+              ? prescription.items
+                  .map(
+                    (item: PrescriptionItem, idx: number) => `
+              <div class="medication-item">
+                <div class="medication-name">${idx + 1}. ${item.medication?.name || item.medicationName || "Thuốc"}</div>
+                <div class="medication-details">
+                  <span class="badge">Liều lượng: ${item.dosage || "N/A"}</span>
+                  <span class="badge">Tần suất: ${item.frequencyPerDay || 0} lần/ngày</span>
+                  <span class="badge">Thời gian: ${item.durationDays || 0} ngày</span>
+                  ${item.route ? `<span class="badge">Đường dùng: ${item.route}</span>` : ""}
+                </div>
+                <div style="margin-top: 10px;">
+                  <strong>Giờ uống:</strong> ${Array.isArray(item.timesOfDay) ? item.timesOfDay.join(", ") : "N/A"}
+                </div>
+                ${item.instructions ? `<div style="margin-top: 5px;"><strong>Hướng dẫn:</strong> ${item.instructions}</div>` : ""}
+              </div>
+            `
+                  )
+                  .join("")
+              : "<p>Không có thuốc trong đơn</p>"}
+          </div>
+
+          <div class="footer">
+            <p>Đơn thuốc được tạo bởi hệ thống Quản lý Y khoa</p>
+            <p>Ngày xuất: ${new Date().toLocaleDateString("vi-VN")}</p>
+          </div>
+        </body>
+        </html>
+      `;
+
+      // Tạo element tạm để render HTML
+      const element = document.createElement("div");
+      element.innerHTML = htmlContent;
+      document.body.appendChild(element);
+
+      // Cấu hình html2pdf
+      const opt = {
+        margin: [10, 10, 10, 10],
+        filename: `Don_thuoc_${prescription.id}_${new Date().getTime()}.pdf`,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+      };
+
+      // Xuất PDF
+      html2pdf().set(opt).from(element).save().then(() => {
+        document.body.removeChild(element);
+        toast.success("Đã xuất PDF thành công");
+      });
+    } catch (error) {
+      console.error("Error exporting PDF:", error);
+      toast.error("Không thể xuất PDF");
+    }
   };
 
   // Sync tab with query param
@@ -1555,14 +1770,27 @@ export default function PatientPage() {
                             </p>
                           </div>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setSelectedPrescriptionId(null)}
-                          className="text-muted-foreground hover:text-foreground"
-                        >
-                          <XCircle className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          {prescriptionDetail && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => exportPrescriptionToPDF(prescriptionDetail as Prescription)}
+                              className="text-muted-foreground hover:text-foreground"
+                            >
+                              <FileDown className="h-4 w-4 mr-2" />
+                              Xuất PDF
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSelectedPrescriptionId(null)}
+                            className="text-muted-foreground hover:text-foreground"
+                          >
+                            <XCircle className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     </CardHeader>
                     <CardContent className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
