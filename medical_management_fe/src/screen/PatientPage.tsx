@@ -383,7 +383,7 @@ export default function PatientPage() {
     return translateStatus(status);
   };
 
-  const exportPrescriptionToPDF = (prescription: Prescription) => {
+  const exportPrescriptionToPDF = async (prescription: Prescription) => {
     console.log("=== EXPORT PDF DEBUG (PATIENT) ===");
     console.log("1. Function called with prescription:", prescription);
     
@@ -443,10 +443,22 @@ export default function PatientPage() {
         <head>
           <meta charset="UTF-8">
           <style>
-            body {
+            * {
+              all: unset;
+              display: revert;
+              box-sizing: border-box;
+            }
+            html, body {
+              width: 100%;
+              height: auto;
+              margin: 0;
+              padding: 0;
               font-family: 'Arial', sans-serif;
+              color: #333333;
+              background-color: #ffffff;
+            }
+            body {
               padding: 20px;
-              color: #333;
             }
             .header {
               text-align: center;
@@ -582,7 +594,7 @@ export default function PatientPage() {
         </html>
       `;
 
-      // Tạo element tạm để render HTML - ẩn khỏi viewport
+      // Tạo element tạm để render HTML - ẩn khỏi viewport và tách biệt hoàn toàn
       console.log("4. Creating temporary element for PDF...");
       const element = document.createElement("div");
       element.style.position = "fixed";
@@ -593,6 +605,12 @@ export default function PatientPage() {
       element.style.opacity = "0";
       element.style.pointerEvents = "none";
       element.style.zIndex = "-1";
+      // Đảm bảo không kế thừa style từ document
+      element.style.all = "initial";
+      element.style.display = "block";
+      element.style.fontFamily = "Arial, sans-serif";
+      element.style.color = "#333333";
+      element.style.backgroundColor = "#ffffff";
       
       console.log("5. Setting HTML content, length:", htmlContent.length);
       element.innerHTML = htmlContent;
@@ -600,13 +618,45 @@ export default function PatientPage() {
       console.log("6. Appending element to body...");
       document.body.appendChild(element);
       console.log("7. Element appended, waiting for render...");
+      
+      // Đợi một chút để element render và styles được áp dụng
+      await new Promise(resolve => setTimeout(resolve, 200));
 
-      // Cấu hình html2pdf
+      // Cấu hình html2pdf với onclone để loại bỏ các style không hỗ trợ
       const opt = {
         margin: [10, 10, 10, 10] as [number, number, number, number],
         filename: `Don_thuoc_${prescription.id}_${new Date().getTime()}.pdf`,
         image: { type: "jpeg" as const, quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: true },
+        html2canvas: { 
+          scale: 2, 
+          useCORS: true, 
+          logging: false,
+          onclone: (clonedDoc: Document) => {
+            // Loại bỏ tất cả các style có chứa oklch() hoặc các color function không hỗ trợ
+            const allElements = clonedDoc.querySelectorAll('*');
+            allElements.forEach((el: Element) => {
+              const htmlEl = el as HTMLElement;
+              if (htmlEl.style) {
+                // Convert computed styles sang RGB/hex
+                const computedStyle = window.getComputedStyle(htmlEl);
+                const color = computedStyle.color;
+                const bgColor = computedStyle.backgroundColor;
+                const borderColor = computedStyle.borderColor;
+                
+                // Nếu có oklch() hoặc các function không hỗ trợ, convert sang hex/rgb
+                if (color && (color.includes('oklch') || color.includes('color('))) {
+                  htmlEl.style.color = '#333333';
+                }
+                if (bgColor && (bgColor.includes('oklch') || bgColor.includes('color('))) {
+                  htmlEl.style.backgroundColor = '#ffffff';
+                }
+                if (borderColor && (borderColor.includes('oklch') || borderColor.includes('color('))) {
+                  htmlEl.style.borderColor = '#dddddd';
+                }
+              }
+            });
+          }
+        },
         jsPDF: { unit: "mm" as const, format: "a4" as const, orientation: "portrait" as const },
       };
 
