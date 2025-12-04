@@ -50,7 +50,14 @@ interface Prescription {
 
 interface PrescriptionItem {
   id: string;
-  medicationName: string;
+  medicationName?: string;
+  medication?: {
+    id: string;
+    name: string;
+    strength?: string;
+    form?: string;
+    unit?: string;
+  };
   dosage: string;
   frequencyPerDay: number;
   timesOfDay: string[];
@@ -1666,7 +1673,7 @@ export default function PatientPage() {
                                         <div className="flex items-start justify-between gap-4">
                                           <div className="min-w-0 flex-1">
                                             <h4 className="text-sm font-semibold text-foreground mb-3">
-                                              {item.medicationName || "Thuốc"}
+                                              {item.medication?.name || item.medicationName || "Thuốc"}
                                             </h4>
                                             <div className="flex flex-wrap gap-2 mb-3">
                                               <Badge
@@ -1748,7 +1755,7 @@ export default function PatientPage() {
                                       prescriptionDetail as Prescription
                                     ).items.map((item: PrescriptionItem) => (
                                       <option key={item.id} value={item.id}>
-                                        {item.medicationName || "Thuốc"} —{" "}
+                                        {item.medication?.name || item.medicationName || "Thuốc"} —{" "}
                                         {item.dosage}
                                       </option>
                                     ))}
