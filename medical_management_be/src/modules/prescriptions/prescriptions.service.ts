@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   Injectable,
   NotFoundException,
   BadRequestException,
@@ -113,6 +114,59 @@ export class PrescriptionsService {
       throw new BadRequestException(
         'Một số thuốc không tồn tại hoặc đã bị vô hiệu hóa'
       );
+    }
+
+    // Kiểm tra trùng lặp đơn thuốc đang điều trị
+    const now = new Date();
+    const activePrescriptions = await this.databaseService.client.prescription.findMany({
+      where: {
+        patientId: data.patientId,
+        status: PrescriptionStatus.ACTIVE,
+        OR: [
+          { endDate: null },
+          { endDate: { gte: now } }
+        ]
+      },
+      include: {
+        items: true
+      }
+    });
+
+    // Kiểm tra từng item trong đơn thuốc mới có trùng với đơn thuốc đang điều trị không
+    for (const newItem of data.items) {
+      for (const activePrescription of activePrescriptions) {
+        // So sánh với từng item trong đơn thuốc đang điều trị
+        for (const activeItem of activePrescription.items) {
+          // Tính thời gian kết thúc của item này dựa trên durationDays của chính nó
+          const itemEndDate = activePrescription.endDate 
+            ? new Date(activePrescription.endDate)
+            : new Date(activePrescription.startDate.getTime() + activeItem.durationDays * 24 * 60 * 60 * 1000);
+          
+          // Kiểm tra xem item này có còn trong thời gian điều trị không
+          if (itemEndDate >= now) {
+            // So sánh mảng timesOfDay (cần sắp xếp để so sánh)
+            const newTimesOfDay = [...newItem.timesOfDay].sort();
+            const activeTimesOfDay = [...activeItem.timesOfDay].sort();
+            const timesOfDayMatch = JSON.stringify(newTimesOfDay) === JSON.stringify(activeTimesOfDay);
+
+            // So sánh route (xử lý null/undefined)
+            const routeMatch = (newItem.route || null) === (activeItem.route || null);
+
+            // Kiểm tra trùng lặp: cùng medicationId, dosage, durationDays, timesOfDay, route
+            if (
+              newItem.medicationId === activeItem.medicationId &&
+              newItem.dosage === activeItem.dosage &&
+              newItem.durationDays === activeItem.durationDays &&
+              timesOfDayMatch &&
+              routeMatch
+            ) {
+              throw new ConflictException(
+                'Đơn thuốc đã tồn tại với cùng liều lượng, thời gian điều trị, thời điểm uống thuốc và đường dùng. Bệnh nhân đang có đơn thuốc đang điều trị với thông tin tương tự.'
+              );
+            }
+          }
+        }
+      }
     }
 
     // Create prescription with items

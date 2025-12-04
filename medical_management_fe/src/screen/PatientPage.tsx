@@ -1566,12 +1566,24 @@ export default function PatientPage() {
                                   Kết thúc
                                 </div>
                                 <div className="text-sm text-foreground">
-                                  {(prescriptionDetail as Prescription)?.endDate
-                                    ? formatDateTime(
-                                        (prescriptionDetail as Prescription)
-                                          .endDate!
-                                      )
-                                    : "-"}
+                                  {(() => {
+                                    const prescription = prescriptionDetail as Prescription;
+                                    if (prescription?.endDate) {
+                                      return formatDateTime(prescription.endDate);
+                                    }
+                                    // Nếu không có endDate, tính từ startDate + durationDays lớn nhất
+                                    if (prescription?.startDate && Array.isArray(prescription.items) && prescription.items.length > 0) {
+                                      const maxDurationDays = Math.max(
+                                        ...prescription.items.map((item: any) => item.durationDays || 0)
+                                      );
+                                      if (maxDurationDays > 0) {
+                                        const calculatedEndDate = new Date(prescription.startDate);
+                                        calculatedEndDate.setDate(calculatedEndDate.getDate() + maxDurationDays);
+                                        return formatDateTime(calculatedEndDate.toISOString());
+                                      }
+                                    }
+                                    return "-";
+                                  })()}
                                 </div>
                               </CardContent>
                             </Card>
