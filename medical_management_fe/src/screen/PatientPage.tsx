@@ -384,7 +384,18 @@ export default function PatientPage() {
   };
 
   const exportPrescriptionToPDF = (prescription: Prescription) => {
+    console.log("=== EXPORT PDF DEBUG (PATIENT) ===");
+    console.log("1. Function called with prescription:", prescription);
+    
     try {
+      if (!prescription) {
+        console.error("2. ERROR: Prescription is null or undefined");
+        toast.error("Không có dữ liệu đơn thuốc để xuất PDF");
+        return;
+      }
+
+      console.log("3. Prescription data valid, starting PDF generation...");
+      
       const formatDateForPDF = (dateString: string) => {
         if (!dateString) return "N/A";
         const date = new Date(dateString);
@@ -571,28 +582,77 @@ export default function PatientPage() {
         </html>
       `;
 
-      // Tạo element tạm để render HTML
+      // Tạo element tạm để render HTML - ẩn khỏi viewport
+      console.log("4. Creating temporary element for PDF...");
       const element = document.createElement("div");
+      element.style.position = "fixed";
+      element.style.left = "-9999px";
+      element.style.top = "0";
+      element.style.width = "210mm";
+      element.style.visibility = "hidden";
+      element.style.opacity = "0";
+      element.style.pointerEvents = "none";
+      element.style.zIndex = "-1";
+      
+      console.log("5. Setting HTML content, length:", htmlContent.length);
       element.innerHTML = htmlContent;
+      
+      console.log("6. Appending element to body...");
       document.body.appendChild(element);
+      console.log("7. Element appended, waiting for render...");
 
       // Cấu hình html2pdf
       const opt = {
         margin: [10, 10, 10, 10] as [number, number, number, number],
         filename: `Don_thuoc_${prescription.id}_${new Date().getTime()}.pdf`,
         image: { type: "jpeg" as const, quality: 0.98 },
-        html2canvas: { scale: 2 },
+        html2canvas: { scale: 2, useCORS: true, logging: true },
         jsPDF: { unit: "mm" as const, format: "a4" as const, orientation: "portrait" as const },
       };
 
-      // Xuất PDF
-      html2pdf().set(opt).from(element).save().then(() => {
-        document.body.removeChild(element);
-        toast.success("Đã xuất PDF thành công");
-      });
+      console.log("8. PDF options configured:", opt);
+      console.log("9. Starting html2pdf process...");
+
+      // Xuất PDF với error handling đầy đủ
+      html2pdf()
+        .set(opt)
+        .from(element)
+        .save()
+        .then(() => {
+          console.log("10. SUCCESS: PDF exported successfully");
+          if (element.parentNode) {
+            document.body.removeChild(element);
+            console.log("11. Element removed from DOM");
+          }
+          toast.success("Đã xuất PDF thành công");
+        })
+        .catch((error: any) => {
+          console.error("10. ERROR during PDF export:", error);
+          console.error("Error details:", {
+            message: error?.message,
+            stack: error?.stack,
+            name: error?.name,
+            fullError: error
+          });
+          
+          // Đảm bảo remove element ngay cả khi có lỗi
+          if (element.parentNode) {
+            document.body.removeChild(element);
+            console.log("11. Element removed from DOM after error");
+          }
+          
+          toast.error("Không thể xuất PDF: " + (error?.message || "Lỗi không xác định"));
+        });
+        
+      console.log("12. html2pdf process initiated (async)");
     } catch (error) {
-      console.error("Error exporting PDF:", error);
-      toast.error("Không thể xuất PDF");
+      console.error("ERROR in exportPrescriptionToPDF:", error);
+      console.error("Error details:", {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        fullError: error
+      });
+      toast.error("Không thể xuất PDF: " + (error instanceof Error ? error.message : "Lỗi không xác định"));
     }
   };
 
